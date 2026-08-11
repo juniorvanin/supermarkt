@@ -47,16 +47,49 @@ function welcomeMessage(name) {
   )
 }
 
+const CROATIA_FUN_FACTS = [
+  'A Croácia tem mais de mil ilhas ao longo do Adriático — só cerca de 50 são habitadas.',
+  'Dubrovnik serviu de inspiração (e cenário) para King\'s Landing em Game of Thrones.',
+  'A gravata moderna tem origem nos croatas do século XVII: a palavra “cravate” vem de “Hrvat”.',
+  'O Dalmatian (cão dálmata) leva o nome da Dalmácia, região costeira da Croácia.',
+  'Zadar tem o Sea Organ: um órgão musical tocado pelas ondas do mar.',
+  'O parque nacional dos Lagos de Plitvice é Patrimônio Mundial da UNESCO desde 1979.',
+  'Em Split, o Palácio de Diocleciano ainda é um bairro vivo — pessoas moram dentro das ruínas romanas.',
+  'A costa croata tem um dos mares mais limpos e transparentes da Europa.',
+  'O kuna foi a moeda croata até 2023, quando o país adotou o euro.',
+  'A Croácia tem formato de lua crescente (ou de bumerangue) no mapa.',
+  'Hvar é famosa por ser uma das cidades mais ensolaradas da Europa.',
+  'O inventor da caneta esferográfica, Slavoljub Eduard Penkala, era croata.',
+  'O laço croata (cravat) virou moda na corte francesa no século XVII.',
+  'Korčula afirma ser a terra natal de Marco Polo — a cidade ainda celebra essa história.',
+  'O muro de Dubrovnik tem cerca de 2 km e oferece uma das melhores vistas do Adriático.',
+  'Na Croácia se fala croata, e o alfabeto usa caracteres como č, ć, š, ž e đ.',
+  'O truffle (trufas) da Ístria está entre os mais cobiçados da Europa.',
+  'Pula guarda um anfiteatro romano tão bem preservado que ainda recebe shows.',
+  'A Croácia tem fronteiras com Eslovênia, Hungria, Sérvia, Bósnia e Herzegovina e Montenegro.',
+  'O vinho croata é antigo: há registros de vinicultura na região há milhares de anos.',
+]
+
+function randomFunFact() {
+  return CROATIA_FUN_FACTS[Math.floor(Math.random() * CROATIA_FUN_FACTS.length)]
+}
+
 function NameGate({ users, onEnter }) {
+  const [funFact] = useState(() => randomFunFact())
+
   return (
     <div className="page gate-page">
-      <header>
+      <header className="gate-header">
+        <p className="gate-kicker">Croácia 2026</p>
         <h1>Lista de compras</h1>
-        <p className="intro">
-          Selecione seu nome para começar a adicionar itens do supermercado na
-          Croácia.
-        </p>
       </header>
+
+      <p className="fun-fact">
+        <span className="fun-fact-label">Você sabia?</span>
+        {funFact}
+      </p>
+
+      <p className="gate-hint">Para começar, clique no seu nome abaixo.</p>
 
       <div className="name-grid" role="list">
         {users.map((user) => (
@@ -271,9 +304,6 @@ export default function App() {
               Seus itens
               <span>{myFoodItems.length}</span>
             </h3>
-            <p className="my-items-copy">
-              Apenas o que {person} adicionou em alimentação.
-            </p>
 
             {myFoodItems.length === 0 ? (
               <p className="empty">Você ainda não adicionou itens.</p>
@@ -303,8 +333,7 @@ export default function App() {
             Resumo geral <span>{aggregatedFood.length}</span>
           </h2>
           <p className="summary-copy">
-            Todos os itens de todos os usuários. Itens iguais com a mesma
-            observação aparecem com contador.
+            Itens iguais com a mesma observação serão agrupados com um contador.
           </p>
 
           {foodItems.length === 0 ? (
