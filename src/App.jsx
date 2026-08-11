@@ -1,4 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+} from 'firebase/firestore'
+import { db, ITEMS_COLLECTION } from './firebase'
 import './App.css'
 
 function normalize(value) {
@@ -6,10 +16,6 @@ function normalize(value) {
     .trim()
     .replace(/\s+/g, ' ')
     .toLocaleLowerCase('pt-BR')
-}
-
-function makeId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 }
 
 const INITIAL_USERS = [
@@ -40,81 +46,6 @@ function welcomeMessage(name) {
     `Oi, ${name}! Que bom ter você aqui. Animado(a) para a Croácia? 😊`
   )
 }
-
-const INITIAL_ITEMS = [
-  {
-    id: 'demo-1',
-    name: 'Leite',
-    type: 'essential',
-    category: 'alimentacao',
-    observation: 'Sem lactose',
-    addedBy: 'Ana',
-  },
-  {
-    id: 'demo-2',
-    name: 'Pão',
-    type: 'essential',
-    category: 'alimentacao',
-    observation: 'Integral, se tiver',
-    addedBy: 'Junior',
-  },
-  {
-    id: 'demo-3',
-    name: 'Ovos',
-    type: 'essential',
-    category: 'alimentacao',
-    observation: '',
-    addedBy: 'Jean',
-  },
-  {
-    id: 'demo-4',
-    name: 'Iogurte',
-    type: 'optional',
-    category: 'alimentacao',
-    observation: 'Marca Activia',
-    addedBy: 'Karla',
-  },
-  {
-    id: 'demo-5',
-    name: 'Café',
-    type: 'essential',
-    category: 'alimentacao',
-    observation: 'Torrado médio',
-    addedBy: 'Sarah',
-  },
-  {
-    id: 'demo-6',
-    name: 'Geleia',
-    type: 'optional',
-    category: 'alimentacao',
-    observation: 'Morango',
-    addedBy: 'Vitor',
-  },
-  {
-    id: 'demo-7',
-    name: 'Manteiga',
-    type: 'essential',
-    category: 'alimentacao',
-    observation: '',
-    addedBy: 'Felipe',
-  },
-  {
-    id: 'demo-8',
-    name: 'Granola',
-    type: 'optional',
-    category: 'alimentacao',
-    observation: 'Sem açúcar',
-    addedBy: 'Mariana',
-  },
-  {
-    id: 'demo-9',
-    name: 'leite',
-    type: 'essential',
-    category: 'alimentacao',
-    observation: 'sem lactose',
-    addedBy: 'Junior',
-  },
-]
 
 function NameGate({ users, onEnter }) {
   return (
@@ -149,57 +80,107 @@ export default function App() {
   const [ingredientInput, setIngredientInput] = useState('')
   const [observationInput, setObservationInput] = useState('')
   const [isEssential, setIsEssential] = useState(true)
-  const [items, setItems] = useState(INITIAL_ITEMS)
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    const itemsQuery = query(collection(db, ITEMS_COLLECTION))
+
+    const unsubscribe = onSnapshot(
+      itemsQuery,
+      (snapshot) => {
+        const nextItems = snapshot.docs.map((itemDoc) => {
+          const data = itemDoc.data()
+          return {
+            id: itemDoc.id,
+            name: data.name || '',
+            type: data.type || 'essential',
+            category: data.category || 'alimentacao',
+            observation: data.observation || '',
+            addedBy: data.addedBy || 'Alguém',
+          }
+        })
+        setItems(nextItems)
+        setLoading(false)
+        setError('')
+      },
+      (err) => {
+        console.error(err)
+        setLoading(false)
+        setError(
+          'Não foi possível carregar a lista. Confira se o Firestore está ativo e em modo de teste.',
+        )
+      },
+    )
+
+    return unsubscribe
+  }, [])
 
   function handleEnter(name) {
     setPerson(name)
   }
 
-  function handleAddIngredient(e) {
+  async function handleAddIngredient(e) {
     e.preventDefault()
     const name = ingredientInput.trim()
-    if (!name || !person) return
+    if (!name || !person || saving) return
 
     const type = isEssential ? 'essential' : 'optional'
     const observation = observationInput.trim()
     const addedBy = person
 
-    setItems((prev) => {
-      const exists = prev.some(
-        (item) =>
-          normalize(item.name) === normalize(name) &&
-          item.type === type &&
-          item.category === 'alimentacao' &&
-          normalize(item.observation || '') === normalize(observation) &&
-          normalize(item.addedBy) === normalize(addedBy),
-      )
-      if (exists) return prev
+    const exists = items.some(
+      (item) =>
+        normalize(item.name) === normalize(name) &&
+        item.type === type &&
+        item.category === 'alimentacao' &&
+        normalize(item.observation || '') === normalize(observation) &&
+        normalize(item.addedBy) === normalize(addedBy),
+    )
+    if (exists) {
+      setIngredientInput('')
+      setObservationInput('')
+      setIsEssential(true)
+      return
+    }
 
-      return [
-        ...prev,
-        {
-          id: makeId(),
-          name,
-          type,
-          category: 'alimentacao',
-          observation,
-          addedBy,
-        },
-      ]
-    })
+    setSaving(true)
+    setError('')
 
-    setIngredientInput('')
-    setObservationInput('')
-    setIsEssential(true)
+    try {
+      await addDoc(collection(db, ITEMS_COLLECTION), {
+        name,
+        type,
+        category: 'alimentacao',
+        observation,
+        addedBy,
+        createdAt: serverTimestamp(),
+      })
+
+      setIngredientInput('')
+      setObservationInput('')
+      setIsEssential(true)
+    } catch (err) {
+      console.error(err)
+      setError('Não foi possível salvar o item. Tente de novo.')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  function removeItem(id) {
-    setItems((prev) =>
-      prev.filter(
-        (item) =>
-          !(item.id === id && normalize(item.addedBy) === normalize(person)),
-      ),
-    )
+  async function removeItem(id) {
+    const target = items.find((item) => item.id === id)
+    if (!target || normalize(target.addedBy) !== normalize(person)) return
+
+    setError('')
+    try {
+      await deleteDoc(doc(db, ITEMS_COLLECTION, id))
+    } catch (err) {
+      console.error(err)
+      setError('Não foi possível remover o item. Tente de novo.')
+    }
   }
 
   if (!person) {
@@ -221,7 +202,7 @@ export default function App() {
   const myOptionalItems = myFoodItems.filter(
     (item) => item.type === 'optional',
   )
-  const canAddIngredient = ingredientInput.trim()
+  const canAddIngredient = ingredientInput.trim() && !saving
 
   return (
     <div className="page">
@@ -239,6 +220,8 @@ export default function App() {
           restrições, variedade ou marca favorita — vamos tentar ao máximo atender
           a todos os pedidos, dando preferência a itens essenciais.
         </p>
+        {error ? <p className="banner-error">{error}</p> : null}
+        {loading ? <p className="banner-info">Carregando lista…</p> : null}
       </header>
 
       <div className="layout">
@@ -278,7 +261,7 @@ export default function App() {
               </label>
 
               <button type="submit" disabled={!canAddIngredient}>
-                Adicionar item
+                {saving ? 'Salvando…' : 'Adicionar item'}
               </button>
             </form>
           </section>
@@ -324,7 +307,7 @@ export default function App() {
             observação aparecem com contador.
           </p>
 
-          {items.length === 0 ? (
+          {foodItems.length === 0 ? (
             <p className="empty">Nenhum item ainda.</p>
           ) : (
             <div className="category">
