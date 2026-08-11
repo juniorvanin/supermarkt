@@ -26,8 +26,9 @@ h1 {
   box-sizing: border-box;
   padding: 1rem 1.15rem;
   border: 1px solid var(--line);
+  border-left: 4px solid var(--croatia-blue);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--accent-soft) 70%, var(--panel));
+  background: color-mix(in srgb, var(--accent-blue-soft) 55%, var(--panel));
   color: var(--ink);
   font-size: 1.02rem;
   line-height: 1.55;
@@ -56,8 +57,9 @@ h1 {
 
 .banner-info {
   background: var(--soft);
-  color: var(--muted);
+  color: var(--ink);
   border: 1px solid var(--line);
+  font-weight: 600;
 }
 
 .header-top h1 {
@@ -76,9 +78,10 @@ h1 {
 button.ghost {
   background: #fff;
   color: var(--ink);
-  border: 1px solid var(--line);
+  border: 1.5px solid #8f9bb8;
   padding: 0.55rem 0.85rem;
   flex-shrink: 0;
+  font-weight: 700;
 }
 
 button.ghost:hover:not(:disabled) {
@@ -94,31 +97,100 @@ button.ghost:hover:not(:disabled) {
   text-align: center;
 }
 
+.gate-flag {
+  width: min(140px, 42vw);
+  height: auto;
+  margin: 0 auto 1rem;
+  display: block;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(12, 28, 140, 0.18);
+  animation: fade-up 0.45s ease both;
+}
+
 .gate-kicker {
   margin: 0 0 0.45rem;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--croatia-blue);
 }
 
 .gate-header h1 {
   margin: 0;
-  font-size: clamp(2.6rem, 8vw, 3.6rem);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  font-size: clamp(2.4rem, 8vw, 3.4rem);
   font-weight: 650;
   letter-spacing: -0.04em;
   line-height: 1.05;
-  background: linear-gradient(120deg, var(--ink) 0%, var(--accent) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--ink);
+}
+
+.gate-header h1 .title-icon {
+  width: 0.85em;
+  height: 0.85em;
+  color: var(--croatia-red);
+}
+
+.header-top h1 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.title-icon,
+.section-icon,
+.inline-icon,
+.name-card-icon {
+  flex-shrink: 0;
+  display: block;
+  translate: 0 -0.08em;
+}
+
+.title-icon {
+  width: 1.05em;
+  height: 1.05em;
+  color: var(--croatia-red);
+}
+
+.section-icon {
+  width: 1.05em;
+  height: 1.05em;
+  color: var(--croatia-blue);
+  translate: 0 -0.14em;
+}
+
+.meal-group > h2,
+.section-title {
+  align-items: center;
+}
+
+.meal-group > h2 .section-icon,
+.section-title .section-icon {
+  position: relative;
+  top: -0.06em;
+}
+
+.inline-icon {
+  width: 1em;
+  height: 1em;
+  color: var(--croatia-red);
+}
+
+.section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .fun-fact {
-  margin: 0 0 1.25rem;
+  margin: 1.5rem 0 0;
   padding: 1rem 1.15rem;
   border: 1px solid var(--line);
+  border-left: 4px solid var(--croatia-red);
   border-radius: 14px;
   background: var(--panel);
   color: var(--ink);
@@ -128,20 +200,23 @@ button.ghost:hover:not(:disabled) {
 }
 
 .fun-fact-label {
-  display: block;
-  margin-bottom: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.65rem;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--croatia-red);
 }
 
 .gate-hint {
   margin: 0 0 0.85rem;
   text-align: center;
-  color: var(--muted);
-  font-size: 0.98rem;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .name-grid {
@@ -154,7 +229,7 @@ button.ghost:hover:not(:disabled) {
   width: 100%;
   min-height: 72px;
   padding: 1rem;
-  border: 1px solid var(--line);
+  border: 1.5px solid #9aa6c4;
   border-radius: 14px;
   background: var(--panel);
   color: var(--ink);
@@ -162,12 +237,16 @@ button.ghost:hover:not(:disabled) {
   font-size: 1.15rem;
   font-weight: 650;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
 
 .name-card:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--croatia-red);
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(7, 22, 111, 0.14);
 }
 
 .name-card:active {
@@ -190,8 +269,9 @@ h1 {
   box-sizing: border-box;
   padding: 1rem 1.15rem;
   border: 1px solid var(--line);
+  border-left: 4px solid var(--croatia-blue);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--accent-soft) 70%, var(--panel));
+  background: color-mix(in srgb, var(--accent-blue-soft) 55%, var(--panel));
   color: var(--ink);
   font-size: 1.02rem;
   line-height: 1.55;
@@ -236,7 +316,7 @@ h1 {
   gap: 0.5rem;
 }
 
-.my-items > h3 span {
+.my-items > h3 > span:last-child {
   font-family: var(--sans);
   font-size: 0.95rem;
   font-weight: 600;
@@ -247,16 +327,27 @@ h1 {
 .my-items-copy,
 .summary-copy {
   margin: 0.35rem 0 0.9rem;
-  color: var(--muted);
-  font-size: 0.9rem;
+  color: var(--ink);
+  font-size: 0.95rem;
+  opacity: 0.85;
 }
 
 .summary-copy {
   margin-top: -0.35rem;
 }
 
+.empty {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.95rem;
+  opacity: 0.75;
+}
+
 .meal-group > h2 {
   margin: 0 0 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   font-family: var(--display);
   font-size: 1.4rem;
   font-weight: 650;
@@ -267,18 +358,19 @@ h1 {
   margin: 0 0 1rem;
   padding-bottom: 0.85rem;
   border-bottom: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 0.95rem;
+  color: var(--ink);
+  font-size: 0.98rem;
+  opacity: 0.85;
 }
 
 label {
   display: block;
   margin: 0.95rem 0 0.35rem;
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ink);
 }
 
 .groups > label:first-of-type,
@@ -298,12 +390,12 @@ input[type='text'] {
 }
 
 input[type='text']::placeholder {
-  color: #8a97a5;
+  color: #5a6482;
 }
 
 input[type='text']:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--croatia-blue);
   background: #fff;
 }
 
@@ -350,7 +442,7 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background: #185a71;
+  background: #a40d25;
 }
 
 button:active:not(:disabled) {
@@ -365,17 +457,17 @@ button:disabled {
 button.link {
   background: none;
   border: none;
-  color: var(--muted);
+  color: var(--croatia-blue);
   padding: 0.3rem 0.35rem;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 button.link:hover:not(:disabled) {
   background: none;
-  color: var(--ink);
+  color: var(--croatia-red);
 }
 
 .actions button:not(.link) {
@@ -418,7 +510,7 @@ button.link:hover:not(:disabled) {
   gap: 0.5rem;
 }
 
-.summary > h2 span,
+.summary > h2 > span:last-child,
 .category > h3 span,
 .option > h4 span,
 .group h5 span {
@@ -510,6 +602,29 @@ button.link:hover:not(:disabled) {
   animation: fade-up 0.25s ease both;
 }
 
+.summary .option {
+  margin-bottom: 0.65rem;
+  padding: 0.55rem 0.7rem;
+}
+
+.summary .group {
+  margin-bottom: 0.55rem;
+}
+
+.summary .group h5 {
+  margin: 0 0 0.25rem;
+}
+
+.summary .group li {
+  padding: 0.35rem 0;
+  gap: 0.5rem;
+}
+
+.summary .meta {
+  margin-top: 0.05rem;
+  font-size: 0.8rem;
+}
+
 .group li:last-child {
   border-bottom: none;
   padding-bottom: 0;
@@ -529,7 +644,7 @@ button.link:hover:not(:disabled) {
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
   background: var(--accent-soft);
-  color: var(--essential);
+  color: var(--croatia-red);
   font-family: var(--sans);
   font-size: 0.8rem;
   font-weight: 700;
@@ -540,8 +655,10 @@ button.link:hover:not(:disabled) {
 .meta {
   display: block;
   margin-top: 0.15rem;
-  font-size: 0.82rem;
-  color: var(--muted);
+  font-size: 0.88rem;
+  color: var(--ink);
+  opacity: 0.78;
+  font-weight: 500;
 }
 
 .tag {
@@ -570,12 +687,6 @@ button.link:hover:not(:disabled) {
   align-items: center;
   gap: 0.25rem;
   flex-shrink: 0;
-}
-
-.empty {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.95rem;
 }
 
 @keyframes fade-up {

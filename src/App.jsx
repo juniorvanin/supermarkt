@@ -9,6 +9,14 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db, ITEMS_COLLECTION } from './firebase'
+import {
+  CroatiaFlag,
+  IconBag,
+  IconCart,
+  IconList,
+  IconSpark,
+  IconUser,
+} from './Icons'
 import './App.css'
 
 function normalize(value) {
@@ -80,14 +88,13 @@ function NameGate({ users, onEnter }) {
   return (
     <div className="page gate-page">
       <header className="gate-header">
+        <CroatiaFlag className="gate-flag" />
         <p className="gate-kicker">Croácia 2026</p>
-        <h1>Lista de compras</h1>
+        <h1>
+          <IconCart className="title-icon" />
+          Lista de compras
+        </h1>
       </header>
-
-      <p className="fun-fact">
-        <span className="fun-fact-label">Você sabia?</span>
-        {funFact}
-      </p>
 
       <p className="gate-hint">Para começar, clique no seu nome abaixo.</p>
 
@@ -104,6 +111,14 @@ function NameGate({ users, onEnter }) {
           </button>
         ))}
       </div>
+
+      <p className="fun-fact">
+        <span className="fun-fact-label">
+          <IconSpark className="inline-icon" />
+          Você sabia?
+        </span>
+        {funFact}
+      </p>
     </div>
   )
 }
@@ -241,7 +256,10 @@ export default function App() {
     <div className="page">
       <header>
         <div className="header-top">
-          <h1>Lista de compras</h1>
+          <h1>
+            <IconCart className="title-icon" />
+            Lista de compras
+          </h1>
           <button type="button" className="ghost" onClick={() => setPerson(null)}>
             Trocar usuário
           </button>
@@ -260,10 +278,11 @@ export default function App() {
       <div className="layout">
         <div className="groups">
           <section className="meal-group">
-            <h2>Alimentação</h2>
-            <p className="meal-copy">
-              O que você costuma comprar para comer no dia a dia?
-            </p>
+            <h2>
+              <IconBag className="section-icon" />
+              Compras
+            </h2>
+            <p className="meal-copy">O que precisamos comprar?</p>
 
             <form className="add" onSubmit={handleAddIngredient}>
               <label htmlFor="ingredient">Item</label>
@@ -301,7 +320,10 @@ export default function App() {
 
           <section className="my-items">
             <h3>
-              Seus itens
+              <span className="section-title">
+                <IconUser className="section-icon" />
+                Seus itens
+              </span>
               <span>{myFoodItems.length}</span>
             </h3>
 
@@ -330,10 +352,14 @@ export default function App() {
 
         <aside className="summary">
           <h2>
-            Resumo geral <span>{aggregatedFood.length}</span>
+            <span className="section-title">
+              <IconList className="section-icon" />
+              Resumo geral
+            </span>
+            <span>{aggregatedFood.length}</span>
           </h2>
           <p className="summary-copy">
-            Itens iguais com a mesma observação serão agrupados com um contador.
+            Itens iguais com a mesma observação serão agrupados.
           </p>
 
           {foodItems.length === 0 ? (
@@ -341,7 +367,7 @@ export default function App() {
           ) : (
             <div className="category">
               <h3>
-                Alimentação <span>{aggregatedFood.length}</span>
+                Compras <span>{aggregatedFood.length}</span>
               </h3>
               <div className="option">
                 <SummaryGroup

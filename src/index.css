@@ -1,16 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,650&display=swap');
 
 :root {
-  --ink: #1a2330;
-  --muted: #5c6b7a;
-  --line: #d7dde5;
+  --croatia-red: #b10e28;
+  --croatia-blue: #07166f;
+  --croatia-white: #ffffff;
+  --ink: #0b1020;
+  --muted: #3d4663;
+  --line: #b8c0d6;
   --panel: #ffffff;
-  --soft: #f0f4f8;
-  --accent: #1f6f8b;
-  --accent-soft: #e4f1f6;
-  --essential: #1f6f8b;
-  --optional: #8a6d3b;
-  --optional-soft: #f5efe4;
+  --soft: #eef1f8;
+  --accent: var(--croatia-red);
+  --accent-soft: #f8d7dd;
+  --accent-blue: var(--croatia-blue);
+  --accent-blue-soft: #d9def5;
+  --essential: var(--croatia-red);
+  --optional: var(--croatia-blue);
+  --optional-soft: #d9def5;
   --display: 'Newsreader', Georgia, serif;
   --sans: 'Instrument Sans', 'Segoe UI', sans-serif;
 }
@@ -24,12 +29,14 @@ body {
   min-height: 100svh;
   font-family: var(--sans);
   font-size: 16px;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--ink);
   background:
-    radial-gradient(ellipse at top left, #e8f2f6 0%, transparent 50%),
-    radial-gradient(ellipse at bottom right, #f3eee6 0%, transparent 45%),
-    #f7f8fa;
+    linear-gradient(180deg, #b10e28 0 10px, transparent 10px),
+    linear-gradient(180deg, transparent calc(100% - 10px), #07166f calc(100% - 10px)),
+    radial-gradient(ellipse at top left, rgba(177, 14, 40, 0.1), transparent 42%),
+    radial-gradient(ellipse at bottom right, rgba(7, 22, 111, 0.12), transparent 40%),
+    #eef1f7;
 }
 
 #root {
