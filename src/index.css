@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,650&display=swap');
+
+:root {
+  --ink: #1a2330;
+  --muted: #5c6b7a;
+  --line: #d7dde5;
+  --panel: #ffffff;
+  --soft: #f0f4f8;
+  --accent: #1f6f8b;
+  --accent-soft: #e4f1f6;
+  --essential: #1f6f8b;
+  --optional: #8a6d3b;
+  --optional-soft: #f5efe4;
+  --display: 'Newsreader', Georgia, serif;
+  --sans: 'Instrument Sans', 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at top left, #e8f2f6 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, #f3eee6 0%, transparent 45%),
+    #f7f8fa;
+}
+
+#root {
+  min-height: 100svh;
+}
