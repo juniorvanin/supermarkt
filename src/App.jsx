@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   addDoc,
   collection,
@@ -7,6 +7,7 @@ import {
   onSnapshot,
   query,
   serverTimestamp,
+  updateDoc,
 } from 'firebase/firestore'
 import { db, ITEMS_COLLECTION } from './firebase'
 import {
@@ -19,11 +20,64 @@ import {
 } from './Icons'
 import './App.css'
 
+const CATEGORIZE_URL = 'https://categorize-slhkez7p7a-uc.a.run.app'
+
+const DEPARTMENT_LABELS = {
+  hortifruti: 'Hortifruti',
+  padaria: 'Padaria',
+  acougue: 'Açougue',
+  peixaria: 'Peixaria',
+  frios_e_laticinios: 'Frios e laticínios',
+  mercearia: 'Mercearia',
+  bebidas: 'Bebidas',
+  congelados: 'Congelados',
+  doces_e_snacks: 'Doces e snacks',
+  higiene_pessoal: 'Higiene pessoal',
+  limpeza: 'Limpeza',
+  bebe: 'Bebê',
+  pet: 'Pet',
+  casa_e_utilidades: 'Casa e utilidades',
+  outros: 'Outros',
+}
+
+const DEPARTMENT_ORDER = Object.keys(DEPARTMENT_LABELS)
+
 function normalize(value) {
   return value
     .trim()
     .replace(/\s+/g, ' ')
     .toLocaleLowerCase('pt-BR')
+}
+
+function resolveDepartment(value) {
+  const department = String(value || '')
+    .trim()
+    .toLowerCase()
+  return DEPARTMENT_LABELS[department] ? department : 'outros'
+}
+
+function departmentLabel(department) {
+  return DEPARTMENT_LABELS[resolveDepartment(department)]
+}
+
+function needsDepartmentReview(department) {
+  const resolved = resolveDepartment(department)
+  return !department || resolved === 'outros'
+}
+
+async function categorizeItem(name) {
+  const response = await fetch(CATEGORIZE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Falha ao categorizar')
+  }
+
+  const data = await response.json()
+  return resolveDepartment(data.category)
 }
 
 const INITIAL_USERS = [
@@ -132,6 +186,9 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [reclassifying, setReclassifying] = useState(false)
+  const reviewedItemIds = useRef(new Set())
+  const departmentCache = useRef(new Map())
 
   useEffect(() => {
     const itemsQuery = query(collection(db, ITEMS_COLLECTION))
@@ -141,11 +198,16 @@ export default function App() {
       (snapshot) => {
         const nextItems = snapshot.docs.map((itemDoc) => {
           const data = itemDoc.data()
+          const maybeDepartment =
+            data.department ||
+            (DEPARTMENT_LABELS[data.category] ? data.category : null)
+
           return {
             id: itemDoc.id,
             name: data.name || '',
             type: data.type || 'essential',
-            category: data.category || 'alimentacao',
+            category: data.category || 'compras',
+            department: resolveDepartment(maybeDepartment),
             observation: data.observation || '',
             addedBy: data.addedBy || 'Alguém',
           }
@@ -166,6 +228,68 @@ export default function App() {
     return unsubscribe
   }, [])
 
+  useEffect(() => {
+    if (loading) return
+
+    const pending = items.filter(
+      (item) =>
+        needsDepartmentReview(item.department) &&
+        !reviewedItemIds.current.has(item.id),
+    )
+
+    if (pending.length === 0) {
+      setReclassifying(false)
+      return
+    }
+
+    let cancelled = false
+
+    async function resolveCachedDepartment(name) {
+      const cacheKey = normalize(name)
+      if (departmentCache.current.has(cacheKey)) {
+        return departmentCache.current.get(cacheKey)
+      }
+
+      const request = categorizeItem(name).catch((err) => {
+        departmentCache.current.delete(cacheKey)
+        throw err
+      })
+      departmentCache.current.set(cacheKey, request)
+      return request
+    }
+
+    async function reclassifyPending() {
+      setReclassifying(true)
+
+      for (const item of pending) {
+        if (cancelled) return
+
+        try {
+          const department = await resolveCachedDepartment(item.name)
+          if (cancelled) return
+
+          if (department === resolveDepartment(item.department)) {
+            reviewedItemIds.current.add(item.id)
+            continue
+          }
+
+          await updateDoc(doc(db, ITEMS_COLLECTION, item.id), { department })
+          reviewedItemIds.current.add(item.id)
+        } catch (err) {
+          console.error(err)
+        }
+      }
+
+      if (!cancelled) setReclassifying(false)
+    }
+
+    reclassifyPending()
+
+    return () => {
+      cancelled = true
+    }
+  }, [loading, items])
+
   function handleEnter(name) {
     setPerson(name)
   }
@@ -183,7 +307,6 @@ export default function App() {
       (item) =>
         normalize(item.name) === normalize(name) &&
         item.type === type &&
-        item.category === 'alimentacao' &&
         normalize(item.observation || '') === normalize(observation) &&
         normalize(item.addedBy) === normalize(addedBy),
     )
@@ -198,10 +321,19 @@ export default function App() {
     setError('')
 
     try {
+      let department = 'outros'
+      try {
+        department = await categorizeItem(name)
+        departmentCache.current.set(normalize(name), Promise.resolve(department))
+      } catch (categorizeError) {
+        console.error(categorizeError)
+      }
+
       await addDoc(collection(db, ITEMS_COLLECTION), {
         name,
         type,
-        category: 'alimentacao',
+        category: 'compras',
+        department: resolveDepartment(department),
         observation,
         addedBy,
         createdAt: serverTimestamp(),
@@ -235,21 +367,13 @@ export default function App() {
     return <NameGate users={INITIAL_USERS} onEnter={handleEnter} />
   }
 
-  const foodItems = items.filter((item) => item.category === 'alimentacao')
-  const essentialItems = foodItems.filter((item) => item.type === 'essential')
-  const optionalItems = foodItems.filter((item) => item.type === 'optional')
-  const aggregatedFood = aggregateItems(foodItems)
-  const aggregatedEssential = aggregateItems(essentialItems)
-  const aggregatedOptional = aggregateItems(optionalItems)
-  const myFoodItems = foodItems.filter(
+  const aggregatedItems = aggregateItems(items)
+  const departmentsInSummary = groupByDepartment(aggregatedItems)
+  const myItems = items.filter(
     (item) => normalize(item.addedBy) === normalize(person),
   )
-  const myEssentialItems = myFoodItems.filter(
-    (item) => item.type === 'essential',
-  )
-  const myOptionalItems = myFoodItems.filter(
-    (item) => item.type === 'optional',
-  )
+  const myEssentialItems = myItems.filter((item) => item.type === 'essential')
+  const myOptionalItems = myItems.filter((item) => item.type === 'optional')
   const canAddIngredient = ingredientInput.trim() && !saving
 
   return (
@@ -273,6 +397,9 @@ export default function App() {
         </p>
         {error ? <p className="banner-error">{error}</p> : null}
         {loading ? <p className="banner-info">Carregando lista…</p> : null}
+        {reclassifying ? (
+          <p className="banner-info">Organizando itens por departamento…</p>
+        ) : null}
       </header>
 
       <div className="layout">
@@ -313,7 +440,7 @@ export default function App() {
               </label>
 
               <button type="submit" disabled={!canAddIngredient}>
-                {saving ? 'Salvando…' : 'Adicionar item'}
+                {saving ? 'Classificando e salvando…' : 'Adicionar item'}
               </button>
             </form>
           </section>
@@ -324,10 +451,10 @@ export default function App() {
                 <IconUser className="section-icon" />
                 Seus itens
               </span>
-              <span>{myFoodItems.length}</span>
+              <span>{myItems.length}</span>
             </h3>
 
-            {myFoodItems.length === 0 ? (
+            {myItems.length === 0 ? (
               <p className="empty">Você ainda não adicionou itens.</p>
             ) : (
               <div className="option">
@@ -356,31 +483,26 @@ export default function App() {
               <IconList className="section-icon" />
               Resumo geral
             </span>
-            <span>{aggregatedFood.length}</span>
+            <span>{aggregatedItems.length}</span>
           </h2>
           <p className="summary-copy">
-            Itens iguais com a mesma observação serão agrupados.
+            Organizado por departamento do supermercado. Itens iguais com a
+            mesma observação serão agrupados.
           </p>
 
-          {foodItems.length === 0 ? (
+          {items.length === 0 ? (
             <p className="empty">Nenhum item ainda.</p>
           ) : (
-            <div className="category">
-              <h3>
-                Compras <span>{aggregatedFood.length}</span>
-              </h3>
-              <div className="option">
-                <SummaryGroup
-                  title="Essencial"
-                  kind="essential"
-                  items={aggregatedEssential}
-                />
-                <SummaryGroup
-                  title="Opcional"
-                  kind="optional"
-                  items={aggregatedOptional}
-                />
-              </div>
+            <div className="department-list">
+              {departmentsInSummary.map((group) => (
+                <div key={group.department} className="option department-group">
+                  <h3>
+                    {departmentLabel(group.department)}
+                    <span>{group.items.length}</span>
+                  </h3>
+                  <SummaryGroup items={group.items} />
+                </div>
+              ))}
             </div>
           )}
         </aside>
@@ -389,10 +511,19 @@ export default function App() {
   )
 }
 
+function preferDepartment(current, next) {
+  const left = resolveDepartment(current)
+  const right = resolveDepartment(next)
+  if (left === 'outros' && right !== 'outros') return right
+  if (right === 'outros' && left !== 'outros') return left
+  return left
+}
+
 function aggregateItems(items) {
   const map = new Map()
 
   for (const item of items) {
+    const department = resolveDepartment(item.department)
     const key = `${normalize(item.name)}|${item.type}|${normalize(item.observation || '')}`
 
     if (!map.has(key)) {
@@ -400,6 +531,7 @@ function aggregateItems(items) {
         key,
         name: item.name,
         type: item.type,
+        department,
         observation: item.observation || '',
         count: 0,
         addedBy: [],
@@ -410,6 +542,7 @@ function aggregateItems(items) {
     const entry = map.get(key)
     entry.count += 1
     entry.ids.push(item.id)
+    entry.department = preferDepartment(entry.department, department)
 
     if (
       !entry.addedBy.some(
@@ -421,6 +554,34 @@ function aggregateItems(items) {
   }
 
   return [...map.values()]
+}
+
+function sortSummaryItems(items) {
+  return [...items].sort((a, b) => {
+    if (a.type !== b.type) {
+      return a.type === 'essential' ? -1 : 1
+    }
+    return normalize(a.name).localeCompare(normalize(b.name), 'pt-BR')
+  })
+}
+
+function groupByDepartment(aggregatedItems) {
+  const map = new Map()
+
+  for (const item of aggregatedItems) {
+    const department = resolveDepartment(item.department)
+    if (!map.has(department)) {
+      map.set(department, [])
+    }
+    map.get(department).push(item)
+  }
+
+  return DEPARTMENT_ORDER.filter((department) => map.has(department)).map(
+    (department) => ({
+      department,
+      items: sortSummaryItems(map.get(department)),
+    }),
+  )
 }
 
 function ItemGroup({ title, kind, items, onRemove, hideAddedBy = false }) {
@@ -436,13 +597,11 @@ function ItemGroup({ title, kind, items, onRemove, hideAddedBy = false }) {
           <li key={item.id}>
             <div>
               <strong>{item.name}</strong>
-              {(item.observation || !hideAddedBy) && (
-                <span className="meta">
-                  {item.observation ? item.observation : ''}
-                  {item.observation && !hideAddedBy ? ' · ' : ''}
-                  {!hideAddedBy ? item.addedBy : ''}
-                </span>
-              )}
+              <span className="meta">
+                {departmentLabel(item.department)}
+                {item.observation ? ` · ${item.observation}` : ''}
+                {!hideAddedBy ? ` · ${item.addedBy}` : ''}
+              </span>
             </div>
             <div className="actions">
               <button type="button" className="link" onClick={() => onRemove(item.id)}>
@@ -456,14 +615,11 @@ function ItemGroup({ title, kind, items, onRemove, hideAddedBy = false }) {
   )
 }
 
-function SummaryGroup({ title, kind, items }) {
+function SummaryGroup({ items }) {
   if (items.length === 0) return null
 
   return (
-    <div className={`group ${kind}`}>
-      <h5>
-        {title} <span>{items.length}</span>
-      </h5>
+    <div className="group">
       <ul>
         {items.map((item) => (
           <li key={item.key}>
@@ -473,6 +629,9 @@ function SummaryGroup({ title, kind, items }) {
                 {item.count > 1 ? (
                   <span className="count">×{item.count}</span>
                 ) : null}
+                <span className={`tag tag-${item.type}`}>
+                  {item.type === 'essential' ? 'essencial' : 'opcional'}
+                </span>
               </strong>
               <span className="meta">
                 {item.observation ? `${item.observation} · ` : ''}
