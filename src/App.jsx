@@ -113,21 +113,18 @@ const INITIAL_USERS = [
 ]
 
 const WELCOME_BY_USER = {
-  Ana: 'Oi, Ana! Que bom ter você aqui. Animada para a Croácia? 😊',
-  Junior: 'Oi, Junior! Que bom ter você aqui. Animado para a Croácia? 😊',
-  Jean: 'Oi, Jean! Que bom ter você aqui. Animado para a Croácia? 😊',
-  Karla: 'Oi, Karla! Que bom ter você aqui. Animada para a Croácia? 😊',
-  Sarah: 'Oi, Sarah! Que bom ter você aqui. Animada para a Croácia? 😊',
-  Vitor: 'Oi, Vitor! Que bom ter você aqui. Animado para a Croácia? 😊',
-  Felipe: 'Oi, Felipe! Que bom ter você aqui. Animado para a Croácia? 😊',
-  Mariana: 'Oi, Mariana! Que bom ter você aqui. Animada para a Croácia? 😊',
+  Ana: 'Oi, Ana — pronta para a Croácia?',
+  Junior: 'Oi, Junior — pronto para a Croácia?',
+  Jean: 'Oi, Jean — pronto para a Croácia?',
+  Karla: 'Oi, Karla — pronta para a Croácia?',
+  Sarah: 'Oi, Sarah — pronta para a Croácia?',
+  Vitor: 'Oi, Vitor — pronto para a Croácia?',
+  Felipe: 'Oi, Felipe — pronto para a Croácia?',
+  Mariana: 'Oi, Mariana — pronta para a Croácia?',
 }
 
 function welcomeMessage(name) {
-  return (
-    WELCOME_BY_USER[name] ||
-    `Oi, ${name}! Que bom ter você aqui. Animado(a) para a Croácia? 😊`
-  )
+  return WELCOME_BY_USER[name] || `Oi, ${name} — pronto(a) para a Croácia?`
 }
 
 const CROATIA_FUN_FACTS = [
@@ -157,6 +154,8 @@ function randomFunFact() {
   return CROATIA_FUN_FACTS[Math.floor(Math.random() * CROATIA_FUN_FACTS.length)]
 }
 
+const PERSON_STORAGE_KEY = 'supermarkt-person'
+
 function NameGate({ users, onEnter }) {
   const [funFact] = useState(() => randomFunFact())
 
@@ -171,21 +170,21 @@ function NameGate({ users, onEnter }) {
         </h1>
       </header>
 
-      <p className="gate-hint">Para começar, clique no seu nome abaixo.</p>
+      <p className="gate-hint">Quem está montando a lista?</p>
 
-      <div className="name-grid" role="list">
+      <ul className="name-grid">
         {users.map((user) => (
-          <button
-            key={user}
-            type="button"
-            className="name-card"
-            role="listitem"
-            onClick={() => onEnter(user)}
-          >
-            {user}
-          </button>
+          <li key={user}>
+            <button
+              type="button"
+              className="name-card"
+              onClick={() => onEnter(user)}
+            >
+              {user}
+            </button>
+          </li>
         ))}
-      </div>
+      </ul>
 
       <p className="fun-fact">
         <span className="fun-fact-label">
@@ -199,7 +198,14 @@ function NameGate({ users, onEnter }) {
 }
 
 export default function App() {
-  const [person, setPerson] = useState(null)
+  const [person, setPerson] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(PERSON_STORAGE_KEY)
+      return INITIAL_USERS.includes(saved) ? saved : null
+    } catch {
+      return null
+    }
+  })
   const [ingredientInput, setIngredientInput] = useState('')
   const [observationInput, setObservationInput] = useState('')
   const [isEssential, setIsEssential] = useState(true)
@@ -210,9 +216,25 @@ export default function App() {
   const [enriching, setEnriching] = useState(false)
   const [activeDepartment, setActiveDepartment] = useState(null)
   const [activeMainTab, setActiveMainTab] = useState('adicionar')
+  const ingredientRef = useRef(null)
   const reviewedItemIds = useRef(new Set())
   const departmentCache = useRef(new Map())
   const translationCache = useRef(new Map())
+
+  useEffect(() => {
+    try {
+      if (person) sessionStorage.setItem(PERSON_STORAGE_KEY, person)
+      else sessionStorage.removeItem(PERSON_STORAGE_KEY)
+    } catch {
+      /* ignore */
+    }
+  }, [person])
+
+  useEffect(() => {
+    if (activeMainTab !== 'adicionar') return
+    const id = window.setTimeout(() => ingredientRef.current?.focus(), 40)
+    return () => window.clearTimeout(id)
+  }, [activeMainTab, person])
 
   useEffect(() => {
     const itemsQuery = query(collection(db, ITEMS_COLLECTION))
@@ -465,205 +487,231 @@ export default function App() {
   const canAddIngredient = ingredientInput.trim() && !saving
 
   return (
-    <div className="page">
-      <header>
-        <div className="header-top">
-          <h1>
-            <IconCart className="title-icon" />
-            Lista de compras
-          </h1>
-          <button type="button" className="ghost" onClick={() => setPerson(null)}>
-            Trocar usuário
-          </button>
-        </div>
-        <p className="user-chip">{welcomeMessage(person)}</p>
-        <p className="intro">
-          Adicione o que precisamos comprar na Croácia — pode ser qualquer
-          coisa: comida para o café da manhã, snacks durante o dia ou bebidas
-          alcoólicas. Use a observação para restrições ou marca e marque se o
-          item é essencial.
-        </p>
-        {error ? <p className="banner-error">{error}</p> : null}
-        {loading ? <p className="banner-info">Carregando lista…</p> : null}
-        {enriching ? (
-          <p className="banner-info">
-            Organizando departamentos e traduções em croata…
-          </p>
-        ) : null}
-      </header>
+    <>
+      <div className="page app-page">
+        <header className="app-header">
+          <div className="app-top">
+            <h1 className="app-brand">
+              <IconCart className="title-icon" />
+              Lista de compras
+            </h1>
+            <button type="button" className="ghost" onClick={() => setPerson(null)}>
+              Sair
+            </button>
+          </div>
+          <p className="app-user">{welcomeMessage(person)}</p>
+          {error ? <p className="banner-error">{error}</p> : null}
+          {loading ? <p className="banner-info">Carregando lista…</p> : null}
+          {enriching ? (
+            <p className="banner-info">Atualizando departamentos e traduções…</p>
+          ) : null}
+        </header>
 
-      <nav className="main-tabs" role="tablist" aria-label="Seções da lista">
+        <div className="main-panel">
+          {activeMainTab === 'adicionar' ? (
+            <section
+              id="panel-adicionar"
+              role="tabpanel"
+              aria-labelledby="tab-adicionar"
+            >
+              <h2 className="panel-title">Novo item</h2>
+              <p className="panel-copy">
+                Café da manhã, snacks, bebidas ou o que mais precisarmos no
+                supermercado. Use a observação para marca ou restrição.
+              </p>
+
+              <form className="add" onSubmit={handleAddIngredient}>
+                <label htmlFor="ingredient">Item</label>
+                <input
+                  id="ingredient"
+                  ref={ingredientRef}
+                  type="text"
+                  value={ingredientInput}
+                  onChange={(e) => setIngredientInput(e.target.value)}
+                  placeholder="Leite, ovos…"
+                  autoComplete="off"
+                  enterKeyHint="done"
+                />
+
+                <label htmlFor="observation">Observação</label>
+                <input
+                  id="observation"
+                  type="text"
+                  value={observationInput}
+                  onChange={(e) => setObservationInput(e.target.value)}
+                  placeholder="Sem lactose, marca preferida…"
+                  autoComplete="off"
+                />
+
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={isEssential}
+                    onChange={(e) => setIsEssential(e.target.checked)}
+                  />
+                  Item essencial
+                </label>
+
+                <button type="submit" disabled={!canAddIngredient}>
+                  {saving ? 'Salvando…' : 'Adicionar à lista'}
+                </button>
+              </form>
+            </section>
+          ) : null}
+
+          {activeMainTab === 'meus' ? (
+            <section
+              id="panel-meus"
+              className="my-items"
+              role="tabpanel"
+              aria-labelledby="tab-meus"
+            >
+              <h2 className="panel-title">Meus itens</h2>
+              <p className="panel-copy">
+                Só o que você adicionou. Remova aqui se mudar de ideia.
+              </p>
+
+              {myItems.length === 0 ? (
+                <p className="empty">Nenhum item seu ainda.</p>
+              ) : (
+                <div className="option">
+                  <ItemGroup
+                    title="Essencial"
+                    kind="essential"
+                    items={myEssentialItems}
+                    onRemove={removeItem}
+                    hideAddedBy
+                  />
+                  <ItemGroup
+                    title="Opcional"
+                    kind="optional"
+                    items={myOptionalItems}
+                    onRemove={removeItem}
+                    hideAddedBy
+                  />
+                </div>
+              )}
+            </section>
+          ) : null}
+
+          {activeMainTab === 'lista' ? (
+            <section
+              id="panel-lista"
+              className="summary"
+              role="tabpanel"
+              aria-labelledby="tab-lista"
+            >
+              <h2 className="panel-title">Lista completa</h2>
+              <p className="panel-copy">
+                Todos os pedidos, por departamento. Croata entre parênteses para
+                achar no mercado.
+              </p>
+
+              {items.length === 0 ? (
+                <p className="empty">A lista ainda está vazia.</p>
+              ) : (
+                <div className="department-tabs-wrap">
+                  <p className="department-select-label" id="department-label">
+                    Departamento
+                  </p>
+                  <div
+                    className="department-tabs"
+                    role="tablist"
+                    aria-labelledby="department-label"
+                  >
+                    {departmentsInSummary.map((group) => {
+                      const selected = group.department === selectedDepartment
+                      return (
+                        <button
+                          key={group.department}
+                          type="button"
+                          role="tab"
+                          aria-selected={selected}
+                          className={
+                            selected
+                              ? 'department-tab is-active'
+                              : 'department-tab'
+                          }
+                          onClick={() => setActiveDepartment(group.department)}
+                        >
+                          <span className="department-tab-label">
+                            {departmentLabel(group.department)}
+                          </span>
+                          <span className="department-tab-count">
+                            {group.items.length}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {activeDepartmentGroup ? (
+                    <div
+                      className="department-panel"
+                      role="tabpanel"
+                      aria-label={departmentLabel(
+                        activeDepartmentGroup.department,
+                      )}
+                    >
+                      <SummaryGroup items={activeDepartmentGroup.items} />
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </section>
+          ) : null}
+        </div>
+      </div>
+
+      <nav className="bottom-nav" role="tablist" aria-label="Navegação">
         <button
+          id="tab-adicionar"
           type="button"
           role="tab"
           aria-selected={activeMainTab === 'adicionar'}
+          aria-controls="panel-adicionar"
           className={
             activeMainTab === 'adicionar' ? 'main-tab is-active' : 'main-tab'
           }
           onClick={() => setActiveMainTab('adicionar')}
         >
           <IconBag className="main-tab-icon" />
-          <span className="main-tab-label">Adicionar</span>
+          <span className="main-tab-label">Novo</span>
         </button>
         <button
+          id="tab-meus"
           type="button"
           role="tab"
           aria-selected={activeMainTab === 'meus'}
+          aria-controls="panel-meus"
           className={activeMainTab === 'meus' ? 'main-tab is-active' : 'main-tab'}
           onClick={() => setActiveMainTab('meus')}
         >
           <IconUser className="main-tab-icon" />
-          <span className="main-tab-label">Meus itens</span>
-          <span className="main-tab-count">{myItems.length}</span>
+          <span className="main-tab-label">Meus</span>
+          {myItems.length > 0 ? (
+            <span className="main-tab-badge">{myItems.length}</span>
+          ) : null}
         </button>
         <button
+          id="tab-lista"
           type="button"
           role="tab"
           aria-selected={activeMainTab === 'lista'}
+          aria-controls="panel-lista"
           className={
             activeMainTab === 'lista' ? 'main-tab is-active' : 'main-tab'
           }
           onClick={() => setActiveMainTab('lista')}
         >
           <IconList className="main-tab-icon" />
-          <span className="main-tab-label">Lista completa</span>
-          <span className="main-tab-count">{aggregatedItems.length}</span>
+          <span className="main-tab-label">Lista</span>
+          {aggregatedItems.length > 0 ? (
+            <span className="main-tab-badge">{aggregatedItems.length}</span>
+          ) : null}
         </button>
       </nav>
-
-      <div className="main-panel">
-        {activeMainTab === 'adicionar' ? (
-          <section
-            className="meal-group"
-            role="tabpanel"
-            aria-label="Adicionar item"
-          >
-            <p className="meal-copy">Novo item para a lista</p>
-
-            <form className="add" onSubmit={handleAddIngredient}>
-              <label htmlFor="ingredient">Item</label>
-              <input
-                id="ingredient"
-                type="text"
-                value={ingredientInput}
-                onChange={(e) => setIngredientInput(e.target.value)}
-                placeholder="Leite, ovos…"
-              />
-
-              <label htmlFor="observation">Observação ou restrição</label>
-              <input
-                id="observation"
-                type="text"
-                value={observationInput}
-                onChange={(e) => setObservationInput(e.target.value)}
-                placeholder="Ex: sem lactose, marca preferida…"
-              />
-
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={isEssential}
-                  onChange={(e) => setIsEssential(e.target.checked)}
-                />
-                Item essencial
-              </label>
-
-              <button type="submit" disabled={!canAddIngredient}>
-                {saving ? 'Traduzindo e salvando…' : 'Adicionar item'}
-              </button>
-            </form>
-          </section>
-        ) : null}
-
-        {activeMainTab === 'meus' ? (
-          <section className="my-items" role="tabpanel" aria-label="Meus itens">
-            {myItems.length === 0 ? (
-              <p className="empty">Você ainda não adicionou itens.</p>
-            ) : (
-              <div className="option">
-                <ItemGroup
-                  title="Essencial"
-                  kind="essential"
-                  items={myEssentialItems}
-                  onRemove={removeItem}
-                  hideAddedBy
-                />
-                <ItemGroup
-                  title="Opcional"
-                  kind="optional"
-                  items={myOptionalItems}
-                  onRemove={removeItem}
-                  hideAddedBy
-                />
-              </div>
-            )}
-          </section>
-        ) : null}
-
-        {activeMainTab === 'lista' ? (
-          <section
-            className="summary"
-            role="tabpanel"
-            aria-label="Lista completa"
-          >
-            <p className="summary-copy">
-              Lista de todos, por departamento. Tradução em croata entre
-              parênteses.
-            </p>
-
-            {items.length === 0 ? (
-              <p className="empty">Nenhum item ainda.</p>
-            ) : (
-              <div className="department-tabs-wrap">
-                <p className="department-select-label">Departamento</p>
-                <div
-                  className="department-tabs"
-                  role="tablist"
-                  aria-label="Departamentos"
-                >
-                  {departmentsInSummary.map((group) => {
-                    const selected = group.department === selectedDepartment
-                    return (
-                      <button
-                        key={group.department}
-                        type="button"
-                        role="tab"
-                        aria-selected={selected}
-                        className={
-                          selected
-                            ? 'department-tab is-active'
-                            : 'department-tab'
-                        }
-                        onClick={() => setActiveDepartment(group.department)}
-                      >
-                        <span className="department-tab-label">
-                          {departmentLabel(group.department)}
-                        </span>
-                        <span className="department-tab-count">
-                          {group.items.length}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {activeDepartmentGroup ? (
-                  <div
-                    className="department-panel"
-                    role="tabpanel"
-                    aria-label={departmentLabel(
-                      activeDepartmentGroup.department,
-                    )}
-                  >
-                    <SummaryGroup items={activeDepartmentGroup.items} />
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </section>
-        ) : null}
-      </div>
-    </div>
+    </>
   )
 }
 
@@ -790,7 +838,10 @@ function SummaryGroup({ items }) {
             <strong>
               {item.name}
               {item.nameHr ? (
-                <span className="summary-hr-name"> ({item.nameHr})</span>
+                <span className="summary-hr-name">
+                  {' '}
+                  ({String(item.nameHr).trim()})
+                </span>
               ) : null}
               {item.count > 1 ? (
                 <span className="count">×{item.count}</span>
