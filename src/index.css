@@ -24,6 +24,11 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   min-height: 100svh;
@@ -32,8 +37,8 @@ body {
   line-height: 1.5;
   color: var(--ink);
   background:
-    linear-gradient(180deg, #b10e28 0 10px, transparent 10px),
-    linear-gradient(180deg, transparent calc(100% - 10px), #07166f calc(100% - 10px)),
+    linear-gradient(180deg, #b10e28 0 8px, transparent 8px),
+    linear-gradient(180deg, transparent calc(100% - 8px), #07166f calc(100% - 8px)),
     radial-gradient(ellipse at top left, rgba(177, 14, 40, 0.1), transparent 42%),
     radial-gradient(ellipse at bottom right, rgba(7, 22, 111, 0.12), transparent 40%),
     #eef1f7;

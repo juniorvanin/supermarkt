@@ -564,8 +564,8 @@ export default function App() {
             <span>{aggregatedItems.length}</span>
           </h2>
           <p className="summary-copy">
-            Organizado por departamento. Cada item mostra o nome em português e
-            a tradução em croata para facilitar as compras.
+            Por departamento. Nome em português com a tradução em croata entre
+            parênteses.
           </p>
 
           {items.length === 0 ? (
@@ -573,13 +573,13 @@ export default function App() {
           ) : (
             <div className="department-list">
               {departmentsInSummary.map((group) => (
-                <div key={group.department} className="option department-group">
+                <section key={group.department} className="department-block">
                   <h3>
                     {departmentLabel(group.department)}
                     <span>{group.items.length}</span>
                   </h3>
                   <SummaryGroup items={group.items} />
-                </div>
+                </section>
               ))}
             </div>
           )}
@@ -705,31 +705,29 @@ function SummaryGroup({ items }) {
   if (items.length === 0) return null
 
   return (
-    <div className="group">
-      <ul>
-        {items.map((item) => (
-          <li key={item.key}>
-            <div className="summary-item">
-              <div className="summary-item-main">
-                <strong>{item.name}</strong>
-                {item.nameHr ? (
-                  <span className="summary-translation">{item.nameHr}</span>
-                ) : null}
-                {item.count > 1 ? (
-                  <span className="count">×{item.count}</span>
-                ) : null}
-                {item.type === 'optional' ? (
-                  <span className="tag tag-optional">opcional</span>
-                ) : null}
-              </div>
-              <span className="meta">
-                {item.observation ? `${item.observation} · ` : ''}
-                {item.addedBy.join(', ')}
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <ul className="summary-items">
+      {items.map((item) => (
+        <li key={item.key} className="summary-row">
+          <div className="summary-row-main">
+            <strong>
+              {item.name}
+              {item.nameHr ? (
+                <span className="summary-hr-name"> ({item.nameHr})</span>
+              ) : null}
+              {item.count > 1 ? (
+                <span className="count">×{item.count}</span>
+              ) : null}
+            </strong>
+            {item.type === 'optional' ? (
+              <span className="tag tag-optional">opcional</span>
+            ) : null}
+          </div>
+          <p className="summary-row-meta">
+            {item.observation ? `${item.observation} · ` : ''}
+            {item.addedBy.join(', ')}
+          </p>
+        </li>
+      ))}
+    </ul>
   )
 }
