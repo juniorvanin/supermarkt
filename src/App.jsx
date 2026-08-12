@@ -52,6 +52,12 @@ function normalize(value) {
     .toLocaleLowerCase('pt-BR')
 }
 
+function normalizeForSearch(value) {
+  return normalize(value)
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+}
+
 function resolveDepartment(value) {
   const department = String(value || '')
     .trim()
@@ -1011,7 +1017,7 @@ export default function App() {
 }
 
 function getItemSuggestions(items, query, { excludeId = null, limit = 6 } = {}) {
-  const q = normalize(query)
+  const q = normalizeForSearch(query)
   if (q.length < 2) return []
 
   const map = new Map()
@@ -1021,9 +1027,10 @@ function getItemSuggestions(items, query, { excludeId = null, limit = 6 } = {}) 
 
     const nameKey = normalize(item.name)
     if (!nameKey) continue
-    if (!nameKey.includes(q) && !normalize(item.nameHr || '').includes(q)) {
-      continue
-    }
+
+    const searchName = normalizeForSearch(item.name)
+    const searchHr = normalizeForSearch(item.nameHr || '')
+    if (!searchName.includes(q) && !searchHr.includes(q)) continue
 
     if (!map.has(nameKey)) {
       map.set(nameKey, {
@@ -1036,10 +1043,10 @@ function getItemSuggestions(items, query, { excludeId = null, limit = 6 } = {}) 
   }
 
   return [...map.values()]
-    .filter((item) => normalize(item.name) !== q)
+    .filter((item) => normalizeForSearch(item.name) !== q)
     .sort((a, b) => {
-      const aStarts = normalize(a.name).startsWith(q) ? 0 : 1
-      const bStarts = normalize(b.name).startsWith(q) ? 0 : 1
+      const aStarts = normalizeForSearch(a.name).startsWith(q) ? 0 : 1
+      const bStarts = normalizeForSearch(b.name).startsWith(q) ? 0 : 1
       if (aStarts !== bStarts) return aStarts - bStarts
       if (b.count !== a.count) return b.count - a.count
       return normalize(a.name).localeCompare(normalize(b.name), 'pt-BR')
