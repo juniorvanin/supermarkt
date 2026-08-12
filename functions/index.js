@@ -76,6 +76,35 @@ function extractDepartment(raw) {
   return 'outros'
 }
 
+const TRANSLATE_PROMPT = `Voce traduz nomes de itens de supermercado do portugues para o croata (hrvatski).
+
+Regras:
+1. O texto de entrada e sempre o nome de um produto/item em portugues.
+2. Traduza para o termo mais comum usado em supermercados na Croacia.
+3. Preserve marcas proprias quando fizer sentido (ex.: Nutella).
+4. Nao explique. Nao adicione pontuacao extra.
+5. Responda apenas com JSON no formato: {"translation":"banane"}`
+
+function extractTranslation(raw) {
+  const text = String(raw || '').trim()
+
+  try {
+    const parsed = JSON.parse(text)
+    if (parsed && parsed.translation) {
+      return String(parsed.translation).trim()
+    }
+  } catch (error) {
+    // fall through to plain-text parsing
+  }
+
+  return text.replace(/^["']|["']$/g, '').trim()
+}
+
+function createOpenAI() {
+  const OpenAI = require('openai')
+  return new OpenAI({ apiKey: openaiKey.value() })
+}
+
 exports.categorize = onRequest(
   {
     secrets: [openaiKey],
@@ -97,8 +126,7 @@ exports.categorize = onRequest(
     }
 
     try {
-      const OpenAI = require('openai')
-      const openai = new OpenAI({ apiKey: openaiKey.value() })
+      const openai = createOpenAI()
 
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
@@ -131,6 +159,66 @@ exports.categorize = onRequest(
     } catch (error) {
       console.error(error)
       res.status(500).json({ error: 'Falha ao categorizar o item' })
+    }
+  },
+)
+
+exports.translate = onRequest(
+  {
+    secrets: [openaiKey],
+    cors: true,
+    invoker: 'public',
+    timeoutSeconds: 60,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      res.status(405).send('Use POST')
+      return
+    }
+
+    const name = String((req.body && req.body.name) || '').trim()
+    if (!name) {
+      res.status(400).json({ error: 'name obrigatório' })
+      return
+    }
+
+    try {
+      const openai = createOpenAI()
+
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        temperature: 0,
+        max_tokens: 60,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: TRANSLATE_PROMPT },
+          {
+            role: 'user',
+            content: `Item em portugues: ${name}\nTraduza para croata.`,
+          },
+        ],
+      })
+
+      const content =
+        response.choices[0] &&
+        response.choices[0].message &&
+        response.choices[0].message.content
+
+      const translation = extractTranslation(content)
+      if (!translation) {
+        res.status(500).json({ error: 'Falha ao traduzir o item' })
+        return
+      }
+
+      res.json({
+        name,
+        translation,
+        language: 'hr',
+      })
+    } catch (error) {
+      console.error(error)
+      res.status(500).json({ error: 'Falha ao traduzir o item' })
     }
   },
 )

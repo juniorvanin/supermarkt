@@ -21,6 +21,8 @@ import {
 import './App.css'
 
 const CATEGORIZE_URL = 'https://categorize-slhkez7p7a-uc.a.run.app'
+const TRANSLATE_URL =
+  'https://us-central1-croacia-2026-8857e.cloudfunctions.net/translate'
 
 const DEPARTMENT_LABELS = {
   hortifruti: 'Hortifruti',
@@ -65,6 +67,10 @@ function needsDepartmentReview(department) {
   return !department || resolved === 'outros'
 }
 
+function needsTranslation(nameHr) {
+  return !String(nameHr || '').trim()
+}
+
 async function categorizeItem(name) {
   const response = await fetch(CATEGORIZE_URL, {
     method: 'POST',
@@ -78,6 +84,21 @@ async function categorizeItem(name) {
 
   const data = await response.json()
   return resolveDepartment(data.category)
+}
+
+async function translateItem(name) {
+  const response = await fetch(TRANSLATE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Falha ao traduzir')
+  }
+
+  const data = await response.json()
+  return String(data.translation || '').trim()
 }
 
 const INITIAL_USERS = [
@@ -186,9 +207,10 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [reclassifying, setReclassifying] = useState(false)
+  const [enriching, setEnriching] = useState(false)
   const reviewedItemIds = useRef(new Set())
   const departmentCache = useRef(new Map())
+  const translationCache = useRef(new Map())
 
   useEffect(() => {
     const itemsQuery = query(collection(db, ITEMS_COLLECTION))
@@ -205,6 +227,7 @@ export default function App() {
           return {
             id: itemDoc.id,
             name: data.name || '',
+            nameHr: data.nameHr || '',
             type: data.type || 'essential',
             category: data.category || 'compras',
             department: resolveDepartment(maybeDepartment),
@@ -233,12 +256,12 @@ export default function App() {
 
     const pending = items.filter(
       (item) =>
-        needsDepartmentReview(item.department) &&
-        !reviewedItemIds.current.has(item.id),
+        !reviewedItemIds.current.has(item.id) &&
+        (needsDepartmentReview(item.department) || needsTranslation(item.nameHr)),
     )
 
     if (pending.length === 0) {
-      setReclassifying(false)
+      setEnriching(false)
       return
     }
 
@@ -258,32 +281,65 @@ export default function App() {
       return request
     }
 
-    async function reclassifyPending() {
-      setReclassifying(true)
+    async function resolveCachedTranslation(name) {
+      const cacheKey = normalize(name)
+      if (translationCache.current.has(cacheKey)) {
+        return translationCache.current.get(cacheKey)
+      }
+
+      const request = translateItem(name).catch((err) => {
+        translationCache.current.delete(cacheKey)
+        throw err
+      })
+      translationCache.current.set(cacheKey, request)
+      return request
+    }
+
+    async function enrichPending() {
+      setEnriching(true)
 
       for (const item of pending) {
         if (cancelled) return
 
         try {
-          const department = await resolveCachedDepartment(item.name)
-          if (cancelled) return
+          const updates = {}
+          const tasks = []
 
-          if (department === resolveDepartment(item.department)) {
-            reviewedItemIds.current.add(item.id)
-            continue
+          if (needsDepartmentReview(item.department)) {
+            tasks.push(
+              resolveCachedDepartment(item.name).then((department) => {
+                if (department !== resolveDepartment(item.department)) {
+                  updates.department = department
+                }
+              }),
+            )
           }
 
-          await updateDoc(doc(db, ITEMS_COLLECTION, item.id), { department })
+          if (needsTranslation(item.nameHr)) {
+            tasks.push(
+              resolveCachedTranslation(item.name).then((nameHr) => {
+                if (nameHr) updates.nameHr = nameHr
+              }),
+            )
+          }
+
+          await Promise.all(tasks)
+          if (cancelled) return
+
+          if (Object.keys(updates).length > 0) {
+            await updateDoc(doc(db, ITEMS_COLLECTION, item.id), updates)
+          }
+
           reviewedItemIds.current.add(item.id)
         } catch (err) {
           console.error(err)
         }
       }
 
-      if (!cancelled) setReclassifying(false)
+      if (!cancelled) setEnriching(false)
     }
 
-    reclassifyPending()
+    enrichPending()
 
     return () => {
       cancelled = true
@@ -322,15 +378,35 @@ export default function App() {
 
     try {
       let department = 'outros'
-      try {
-        department = await categorizeItem(name)
+      let nameHr = ''
+
+      const [departmentResult, translationResult] = await Promise.allSettled([
+        categorizeItem(name),
+        translateItem(name),
+      ])
+
+      if (departmentResult.status === 'fulfilled') {
+        department = departmentResult.value
         departmentCache.current.set(normalize(name), Promise.resolve(department))
-      } catch (categorizeError) {
-        console.error(categorizeError)
+      } else {
+        console.error(departmentResult.reason)
+      }
+
+      if (translationResult.status === 'fulfilled') {
+        nameHr = translationResult.value
+        if (nameHr) {
+          translationCache.current.set(
+            normalize(name),
+            Promise.resolve(nameHr),
+          )
+        }
+      } else {
+        console.error(translationResult.reason)
       }
 
       await addDoc(collection(db, ITEMS_COLLECTION), {
         name,
+        nameHr,
         type,
         category: 'compras',
         department: resolveDepartment(department),
@@ -397,8 +473,10 @@ export default function App() {
         </p>
         {error ? <p className="banner-error">{error}</p> : null}
         {loading ? <p className="banner-info">Carregando lista…</p> : null}
-        {reclassifying ? (
-          <p className="banner-info">Organizando itens por departamento…</p>
+        {enriching ? (
+          <p className="banner-info">
+            Organizando departamentos e traduções em croata…
+          </p>
         ) : null}
       </header>
 
@@ -440,7 +518,7 @@ export default function App() {
               </label>
 
               <button type="submit" disabled={!canAddIngredient}>
-                {saving ? 'Classificando e salvando…' : 'Adicionar item'}
+                {saving ? 'Traduzindo e salvando…' : 'Adicionar item'}
               </button>
             </form>
           </section>
@@ -477,7 +555,7 @@ export default function App() {
           </section>
         </div>
 
-        <aside className="summary">
+        <section className="summary">
           <h2>
             <span className="section-title">
               <IconList className="section-icon" />
@@ -486,8 +564,8 @@ export default function App() {
             <span>{aggregatedItems.length}</span>
           </h2>
           <p className="summary-copy">
-            Organizado por departamento do supermercado. Itens iguais com a
-            mesma observação serão agrupados.
+            Organizado por departamento. Cada item mostra o nome em português e
+            a tradução em croata para facilitar as compras.
           </p>
 
           {items.length === 0 ? (
@@ -505,7 +583,7 @@ export default function App() {
               ))}
             </div>
           )}
-        </aside>
+        </section>
       </div>
     </div>
   )
@@ -519,6 +597,12 @@ function preferDepartment(current, next) {
   return left
 }
 
+function preferTranslation(current, next) {
+  const left = String(current || '').trim()
+  const right = String(next || '').trim()
+  return left || right
+}
+
 function aggregateItems(items) {
   const map = new Map()
 
@@ -530,6 +614,7 @@ function aggregateItems(items) {
       map.set(key, {
         key,
         name: item.name,
+        nameHr: item.nameHr || '',
         type: item.type,
         department,
         observation: item.observation || '',
@@ -543,6 +628,7 @@ function aggregateItems(items) {
     entry.count += 1
     entry.ids.push(item.id)
     entry.department = preferDepartment(entry.department, department)
+    entry.nameHr = preferTranslation(entry.nameHr, item.nameHr)
 
     if (
       !entry.addedBy.some(
@@ -623,16 +709,19 @@ function SummaryGroup({ items }) {
       <ul>
         {items.map((item) => (
           <li key={item.key}>
-            <div>
-              <strong>
-                {item.name}
+            <div className="summary-item">
+              <div className="summary-item-main">
+                <strong>{item.name}</strong>
+                {item.nameHr ? (
+                  <span className="summary-translation">{item.nameHr}</span>
+                ) : null}
                 {item.count > 1 ? (
                   <span className="count">×{item.count}</span>
                 ) : null}
-                <span className={`tag tag-${item.type}`}>
-                  {item.type === 'essential' ? 'essencial' : 'opcional'}
-                </span>
-              </strong>
+                {item.type === 'optional' ? (
+                  <span className="tag tag-optional">opcional</span>
+                ) : null}
+              </div>
               <span className="meta">
                 {item.observation ? `${item.observation} · ` : ''}
                 {item.addedBy.join(', ')}
