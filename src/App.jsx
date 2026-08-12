@@ -883,25 +883,19 @@ export default function App() {
               aria-labelledby="tab-lista"
             >
               <h2 className="panel-title">Lista completa</h2>
-              <p className="panel-copy">
-                Marque o que já foi comprado. Croata entre parênteses para achar
-                no mercado.
-              </p>
               {aggregatedItems.length > 0 ? (
                 <div className="list-progress-row">
                   <p className="list-progress" aria-live="polite">
                     {boughtCount} de {aggregatedItems.length} comprados
                   </p>
-                  {boughtCount > 0 ? (
-                    <button
-                      type="button"
-                      className="ghost clear-bought"
-                      onClick={clearBoughtItems}
-                      disabled={clearingBought}
-                    >
-                      {clearingBought ? 'Apagando…' : 'Apagar comprados'}
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    className="ghost clear-bought"
+                    onClick={clearBoughtItems}
+                    disabled={boughtCount === 0 || clearingBought}
+                  >
+                    {clearingBought ? 'Apagando…' : 'Apagar comprados'}
+                  </button>
                 </div>
               ) : null}
 

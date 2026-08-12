@@ -311,7 +311,7 @@ button.name-card:active {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin: -0.55rem 0 1rem;
+  margin: 0 0 1rem;
 }
 
 .list-progress {
@@ -326,9 +326,16 @@ button.ghost.clear-bought {
   flex-shrink: 0;
   padding: 0.4rem 0.65rem;
   min-height: 36px;
+  min-width: 9.5rem;
   font-size: 0.78rem;
   color: var(--red);
   border-color: color-mix(in srgb, var(--red) 35%, var(--line-strong));
+}
+
+button.ghost.clear-bought:disabled {
+  opacity: 0.4;
+  color: var(--muted);
+  border-color: var(--line-strong);
 }
 
 button.ghost.clear-bought:hover:not(:disabled) {
