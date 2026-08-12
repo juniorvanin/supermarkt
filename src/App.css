@@ -429,6 +429,12 @@ button.ghost:hover:not(:disabled) {
   color: #8b93a3;
 }
 
+.form-cancel {
+  width: 100%;
+  margin-top: 0.55rem;
+  min-height: 44px;
+}
+
 button.link {
   background: none;
   border: none;
@@ -446,9 +452,18 @@ button.link:hover:not(:disabled) {
   color: var(--red);
 }
 
+button.link-danger {
+  color: var(--red);
+}
+
+button.link-danger:hover:not(:disabled) {
+  color: var(--red-deep);
+}
+
 .actions {
   display: flex;
   align-items: center;
+  gap: 0.55rem;
   flex-shrink: 0;
 }
 

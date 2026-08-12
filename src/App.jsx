@@ -210,6 +210,7 @@ export default function App() {
   const [ingredientInput, setIngredientInput] = useState('')
   const [observationInput, setObservationInput] = useState('')
   const [isEssential, setIsEssential] = useState(true)
+  const [editingId, setEditingId] = useState(null)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -235,7 +236,7 @@ export default function App() {
     if (activeMainTab !== 'adicionar') return
     const id = window.setTimeout(() => ingredientRef.current?.focus(), 40)
     return () => window.clearTimeout(id)
-  }, [activeMainTab, person])
+  }, [activeMainTab, person, editingId])
 
   useEffect(() => {
     const itemsQuery = query(collection(db, ITEMS_COLLECTION))
@@ -376,8 +377,43 @@ export default function App() {
     setPerson(name)
   }
 
+  function resetItemForm() {
+    setEditingId(null)
+    setIngredientInput('')
+    setObservationInput('')
+    setIsEssential(true)
+  }
+
+  function startEdit(item) {
+    if (!item || normalize(item.addedBy) !== normalize(person)) return
+    setEditingId(item.id)
+    setIngredientInput(item.name)
+    setObservationInput(item.observation || '')
+    setIsEssential(item.type !== 'optional')
+    setError('')
+    setActiveMainTab('adicionar')
+  }
+
+  function cancelEdit() {
+    resetItemForm()
+    setError('')
+    setActiveMainTab('meus')
+  }
+
+  function switchMainTab(tab) {
+    if (tab !== 'adicionar' && editingId) {
+      resetItemForm()
+    }
+    setActiveMainTab(tab)
+  }
+
   async function handleAddIngredient(e) {
     e.preventDefault()
+    if (editingId) {
+      await handleUpdateIngredient()
+      return
+    }
+
     const name = ingredientInput.trim()
     if (!name || !person || saving) return
 
@@ -393,9 +429,7 @@ export default function App() {
         normalize(item.addedBy) === normalize(addedBy),
     )
     if (exists) {
-      setIngredientInput('')
-      setObservationInput('')
-      setIsEssential(true)
+      resetItemForm()
       return
     }
 
@@ -442,9 +476,7 @@ export default function App() {
         createdAt: serverTimestamp(),
       })
 
-      setIngredientInput('')
-      setObservationInput('')
-      setIsEssential(true)
+      resetItemForm()
       setActiveMainTab('meus')
     } catch (err) {
       console.error(err)
@@ -454,9 +486,94 @@ export default function App() {
     }
   }
 
+  async function handleUpdateIngredient() {
+    const name = ingredientInput.trim()
+    if (!name || !person || saving || !editingId) return
+
+    const target = items.find((item) => item.id === editingId)
+    if (!target || normalize(target.addedBy) !== normalize(person)) {
+      cancelEdit()
+      return
+    }
+
+    const type = isEssential ? 'essential' : 'optional'
+    const observation = observationInput.trim()
+
+    const exists = items.some(
+      (item) =>
+        item.id !== editingId &&
+        normalize(item.name) === normalize(name) &&
+        item.type === type &&
+        normalize(item.observation || '') === normalize(observation) &&
+        normalize(item.addedBy) === normalize(person),
+    )
+    if (exists) {
+      setError('Você já tem esse item com a mesma observação.')
+      return
+    }
+
+    setSaving(true)
+    setError('')
+
+    try {
+      const updates = {
+        name,
+        type,
+        observation,
+      }
+      const nameChanged = normalize(target.name) !== normalize(name)
+
+      if (nameChanged) {
+        const [departmentResult, translationResult] = await Promise.allSettled([
+          categorizeItem(name),
+          translateItem(name),
+        ])
+
+        if (departmentResult.status === 'fulfilled') {
+          updates.department = resolveDepartment(departmentResult.value)
+          departmentCache.current.set(
+            normalize(name),
+            Promise.resolve(updates.department),
+          )
+        } else {
+          console.error(departmentResult.reason)
+        }
+
+        if (translationResult.status === 'fulfilled') {
+          updates.nameHr = translationResult.value || ''
+          if (updates.nameHr) {
+            translationCache.current.set(
+              normalize(name),
+              Promise.resolve(updates.nameHr),
+            )
+          }
+        } else {
+          console.error(translationResult.reason)
+          updates.nameHr = ''
+        }
+
+        reviewedItemIds.current.delete(editingId)
+      }
+
+      await updateDoc(doc(db, ITEMS_COLLECTION, editingId), updates)
+
+      resetItemForm()
+      setActiveMainTab('meus')
+    } catch (err) {
+      console.error(err)
+      setError('Não foi possível atualizar o item. Tente de novo.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function removeItem(id) {
     const target = items.find((item) => item.id === id)
     if (!target || normalize(target.addedBy) !== normalize(person)) return
+
+    if (editingId === id) {
+      resetItemForm()
+    }
 
     setError('')
     try {
@@ -516,7 +633,14 @@ export default function App() {
               <IconCart className="title-icon" />
               Lista de compras
             </h1>
-            <button type="button" className="ghost" onClick={() => setPerson(null)}>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                resetItemForm()
+                setPerson(null)
+              }}
+            >
               Sair
             </button>
           </div>
@@ -535,10 +659,13 @@ export default function App() {
               role="tabpanel"
               aria-labelledby="tab-adicionar"
             >
-              <h2 className="panel-title">Novo item</h2>
+              <h2 className="panel-title">
+                {editingId ? 'Editar item' : 'Novo item'}
+              </h2>
               <p className="panel-copy">
-                Café da manhã, snacks, bebidas ou o que mais precisarmos no
-                supermercado. Use a observação para marca ou restrição.
+                {editingId
+                  ? 'Ajuste o nome, a observação ou se o item é essencial.'
+                  : 'Café da manhã, snacks, bebidas ou o que mais precisarmos no supermercado. Use a observação para marca ou restrição.'}
               </p>
 
               <form className="add" onSubmit={handleAddIngredient}>
@@ -574,8 +701,22 @@ export default function App() {
                 </label>
 
                 <button type="submit" disabled={!canAddIngredient}>
-                  {saving ? 'Salvando…' : 'Adicionar à lista'}
+                  {saving
+                    ? 'Salvando…'
+                    : editingId
+                      ? 'Salvar alterações'
+                      : 'Adicionar à lista'}
                 </button>
+                {editingId ? (
+                  <button
+                    type="button"
+                    className="ghost form-cancel"
+                    onClick={cancelEdit}
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </button>
+                ) : null}
               </form>
             </section>
           ) : null}
@@ -589,7 +730,7 @@ export default function App() {
             >
               <h2 className="panel-title">Meus itens</h2>
               <p className="panel-copy">
-                Só o que você adicionou. Remova aqui se mudar de ideia.
+                Só o que você adicionou. Edite ou remova se mudar de ideia.
               </p>
 
               {myItems.length === 0 ? (
@@ -600,6 +741,7 @@ export default function App() {
                     title="Essencial"
                     kind="essential"
                     items={myEssentialItems}
+                    onEdit={startEdit}
                     onRemove={removeItem}
                     hideAddedBy
                   />
@@ -607,6 +749,7 @@ export default function App() {
                     title="Opcional"
                     kind="optional"
                     items={myOptionalItems}
+                    onEdit={startEdit}
                     onRemove={removeItem}
                     hideAddedBy
                   />
@@ -702,10 +845,10 @@ export default function App() {
           className={
             activeMainTab === 'adicionar' ? 'main-tab is-active' : 'main-tab'
           }
-          onClick={() => setActiveMainTab('adicionar')}
+          onClick={() => switchMainTab('adicionar')}
         >
           <IconBag className="main-tab-icon" />
-          <span className="main-tab-label">Novo</span>
+          <span className="main-tab-label">{editingId ? 'Editar' : 'Novo'}</span>
         </button>
         <button
           id="tab-meus"
@@ -714,7 +857,7 @@ export default function App() {
           aria-selected={activeMainTab === 'meus'}
           aria-controls="panel-meus"
           className={activeMainTab === 'meus' ? 'main-tab is-active' : 'main-tab'}
-          onClick={() => setActiveMainTab('meus')}
+          onClick={() => switchMainTab('meus')}
         >
           <IconUser className="main-tab-icon" />
           <span className="main-tab-label">Meus</span>
@@ -731,7 +874,7 @@ export default function App() {
           className={
             activeMainTab === 'lista' ? 'main-tab is-active' : 'main-tab'
           }
-          onClick={() => setActiveMainTab('lista')}
+          onClick={() => switchMainTab('lista')}
         >
           <IconList className="main-tab-icon" />
           <span className="main-tab-label">Lista</span>
@@ -829,7 +972,14 @@ function groupByDepartment(aggregatedItems) {
   )
 }
 
-function ItemGroup({ title, kind, items, onRemove, hideAddedBy = false }) {
+function ItemGroup({
+  title,
+  kind,
+  items,
+  onEdit,
+  onRemove,
+  hideAddedBy = false,
+}) {
   if (items.length === 0) return null
 
   return (
@@ -849,7 +999,18 @@ function ItemGroup({ title, kind, items, onRemove, hideAddedBy = false }) {
               </span>
             </div>
             <div className="actions">
-              <button type="button" className="link" onClick={() => onRemove(item.id)}>
+              <button
+                type="button"
+                className="link"
+                onClick={() => onEdit(item)}
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                className="link link-danger"
+                onClick={() => onRemove(item.id)}
+              >
                 Remover
               </button>
             </div>
