@@ -208,6 +208,8 @@ export default function App() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [enriching, setEnriching] = useState(false)
+  const [activeDepartment, setActiveDepartment] = useState(null)
+  const [activeMainTab, setActiveMainTab] = useState('adicionar')
   const reviewedItemIds = useRef(new Set())
   const departmentCache = useRef(new Map())
   const translationCache = useRef(new Map())
@@ -418,6 +420,7 @@ export default function App() {
       setIngredientInput('')
       setObservationInput('')
       setIsEssential(true)
+      setActiveMainTab('meus')
     } catch (err) {
       console.error(err)
       setError('Não foi possível salvar o item. Tente de novo.')
@@ -445,6 +448,15 @@ export default function App() {
 
   const aggregatedItems = aggregateItems(items)
   const departmentsInSummary = groupByDepartment(aggregatedItems)
+  const selectedDepartment = departmentsInSummary.some(
+    (group) => group.department === activeDepartment,
+  )
+    ? activeDepartment
+    : departmentsInSummary[0]?.department || null
+  const activeDepartmentGroup =
+    departmentsInSummary.find(
+      (group) => group.department === selectedDepartment,
+    ) || null
   const myItems = items.filter(
     (item) => normalize(item.addedBy) === normalize(person),
   )
@@ -466,10 +478,10 @@ export default function App() {
         </div>
         <p className="user-chip">{welcomeMessage(person)}</p>
         <p className="intro">
-          Adicione abaixo o que precisamos comprar no supermercado ao chegar na
-          Croácia. Marque se o item é essencial e use a observação para indicar
-          restrições, variedade ou marca favorita — vamos tentar ao máximo atender
-          a todos os pedidos, dando preferência a itens essenciais.
+          Adicione o que precisamos comprar na Croácia — pode ser qualquer
+          coisa: comida para o café da manhã, snacks durante o dia ou bebidas
+          alcoólicas. Use a observação para restrições ou marca e marque se o
+          item é essencial.
         </p>
         {error ? <p className="banner-error">{error}</p> : null}
         {loading ? <p className="banner-info">Carregando lista…</p> : null}
@@ -480,14 +492,53 @@ export default function App() {
         ) : null}
       </header>
 
-      <div className="layout">
-        <div className="groups">
-          <section className="meal-group">
-            <h2>
-              <IconBag className="section-icon" />
-              Compras
-            </h2>
-            <p className="meal-copy">O que precisamos comprar?</p>
+      <nav className="main-tabs" role="tablist" aria-label="Seções da lista">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeMainTab === 'adicionar'}
+          className={
+            activeMainTab === 'adicionar' ? 'main-tab is-active' : 'main-tab'
+          }
+          onClick={() => setActiveMainTab('adicionar')}
+        >
+          <IconBag className="main-tab-icon" />
+          <span className="main-tab-label">Adicionar</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeMainTab === 'meus'}
+          className={activeMainTab === 'meus' ? 'main-tab is-active' : 'main-tab'}
+          onClick={() => setActiveMainTab('meus')}
+        >
+          <IconUser className="main-tab-icon" />
+          <span className="main-tab-label">Meus itens</span>
+          <span className="main-tab-count">{myItems.length}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeMainTab === 'lista'}
+          className={
+            activeMainTab === 'lista' ? 'main-tab is-active' : 'main-tab'
+          }
+          onClick={() => setActiveMainTab('lista')}
+        >
+          <IconList className="main-tab-icon" />
+          <span className="main-tab-label">Lista completa</span>
+          <span className="main-tab-count">{aggregatedItems.length}</span>
+        </button>
+      </nav>
+
+      <div className="main-panel">
+        {activeMainTab === 'adicionar' ? (
+          <section
+            className="meal-group"
+            role="tabpanel"
+            aria-label="Adicionar item"
+          >
+            <p className="meal-copy">Novo item para a lista</p>
 
             <form className="add" onSubmit={handleAddIngredient}>
               <label htmlFor="ingredient">Item</label>
@@ -522,16 +573,10 @@ export default function App() {
               </button>
             </form>
           </section>
+        ) : null}
 
-          <section className="my-items">
-            <h3>
-              <span className="section-title">
-                <IconUser className="section-icon" />
-                Seus itens
-              </span>
-              <span>{myItems.length}</span>
-            </h3>
-
+        {activeMainTab === 'meus' ? (
+          <section className="my-items" role="tabpanel" aria-label="Meus itens">
             {myItems.length === 0 ? (
               <p className="empty">Você ainda não adicionou itens.</p>
             ) : (
@@ -553,37 +598,70 @@ export default function App() {
               </div>
             )}
           </section>
-        </div>
+        ) : null}
 
-        <section className="summary">
-          <h2>
-            <span className="section-title">
-              <IconList className="section-icon" />
-              Resumo geral
-            </span>
-            <span>{aggregatedItems.length}</span>
-          </h2>
-          <p className="summary-copy">
-            Por departamento. Nome em português com a tradução em croata entre
-            parênteses.
-          </p>
+        {activeMainTab === 'lista' ? (
+          <section
+            className="summary"
+            role="tabpanel"
+            aria-label="Lista completa"
+          >
+            <p className="summary-copy">
+              Lista de todos, por departamento. Tradução em croata entre
+              parênteses.
+            </p>
 
-          {items.length === 0 ? (
-            <p className="empty">Nenhum item ainda.</p>
-          ) : (
-            <div className="department-list">
-              {departmentsInSummary.map((group) => (
-                <section key={group.department} className="department-block">
-                  <h3>
-                    {departmentLabel(group.department)}
-                    <span>{group.items.length}</span>
-                  </h3>
-                  <SummaryGroup items={group.items} />
-                </section>
-              ))}
-            </div>
-          )}
-        </section>
+            {items.length === 0 ? (
+              <p className="empty">Nenhum item ainda.</p>
+            ) : (
+              <div className="department-tabs-wrap">
+                <p className="department-select-label">Departamento</p>
+                <div
+                  className="department-tabs"
+                  role="tablist"
+                  aria-label="Departamentos"
+                >
+                  {departmentsInSummary.map((group) => {
+                    const selected = group.department === selectedDepartment
+                    return (
+                      <button
+                        key={group.department}
+                        type="button"
+                        role="tab"
+                        aria-selected={selected}
+                        className={
+                          selected
+                            ? 'department-tab is-active'
+                            : 'department-tab'
+                        }
+                        onClick={() => setActiveDepartment(group.department)}
+                      >
+                        <span className="department-tab-label">
+                          {departmentLabel(group.department)}
+                        </span>
+                        <span className="department-tab-count">
+                          {group.items.length}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {activeDepartmentGroup ? (
+                  <div
+                    className="department-panel"
+                    role="tabpanel"
+                    aria-label={departmentLabel(
+                      activeDepartmentGroup.department,
+                    )}
+                  >
+                    <SummaryGroup items={activeDepartmentGroup.items} />
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </section>
+        ) : null}
       </div>
     </div>
   )

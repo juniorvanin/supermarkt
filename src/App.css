@@ -289,6 +289,84 @@ h1 {
   align-items: start;
 }
 
+.main-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+  padding: 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 92%, #eef1f7);
+  box-shadow: 0 8px 20px rgba(11, 16, 32, 0.06);
+  backdrop-filter: blur(8px);
+}
+
+.main-tab {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  min-height: 56px;
+  padding: 0.45rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.15;
+  touch-action: manipulation;
+}
+
+.main-tab-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: currentColor;
+}
+
+.main-tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.main-tab-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+  opacity: 0.85;
+}
+
+.main-tab.is-active {
+  background: #fff;
+  border-color: color-mix(in srgb, var(--croatia-blue) 28%, var(--line));
+  color: var(--croatia-blue);
+  box-shadow: 0 1px 0 rgba(26, 35, 48, 0.04);
+}
+
+.main-tab:hover:not(:disabled) {
+  background: transparent;
+  color: var(--muted);
+}
+
+.main-tab.is-active:hover:not(:disabled) {
+  background: #fff;
+  color: var(--croatia-blue);
+}
+
+.main-tab:active:not(:disabled) {
+  transform: none;
+}
+
+.main-panel {
+  min-width: 0;
+}
+
 .groups {
   display: grid;
   grid-template-columns: 1fr;
@@ -360,8 +438,10 @@ h1 {
   padding-bottom: 0.85rem;
   border-bottom: 1px solid var(--line);
   color: var(--ink);
-  font-size: 0.98rem;
-  opacity: 0.85;
+  font-family: var(--display);
+  font-size: 1.15rem;
+  font-weight: 650;
+  opacity: 0.95;
 }
 
 label {
@@ -536,6 +616,96 @@ button.link:hover:not(:disabled) {
 
 .category:last-child {
   margin-bottom: 0;
+}
+
+.department-tabs-wrap {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.department-select-label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.department-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.department-tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.55rem 0.7rem;
+  border: 1.5px solid #9aa6c4;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-align: left;
+  line-height: 1.2;
+  touch-action: manipulation;
+}
+
+.department-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.department-tab.is-active {
+  border-color: var(--croatia-blue);
+  background: color-mix(in srgb, var(--accent-blue-soft) 70%, #fff);
+  color: var(--croatia-blue);
+}
+
+.department-tab:hover:not(:disabled) {
+  background: #fff;
+  color: var(--ink);
+}
+
+.department-tab.is-active:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-blue-soft) 70%, #fff);
+  color: var(--croatia-blue);
+}
+
+.department-tab:active:not(:disabled) {
+  transform: none;
+}
+
+.department-tab-count {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.3rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.department-tab.is-active .department-tab-count {
+  background: #fff;
+  color: var(--croatia-blue);
+}
+
+.department-panel {
+  padding: 0.1rem 0 0;
+  border-top: 1px solid var(--line);
 }
 
 .department-list {
@@ -785,6 +955,21 @@ button.link:hover:not(:disabled) {
     gap: 1.35rem;
   }
 
+  .main-tabs {
+    gap: 0.45rem;
+    padding: 0.45rem;
+  }
+
+  .main-tab {
+    display: inline-flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 48px;
+    font-size: 0.9rem;
+  }
+
   .meal-group,
   .my-items,
   .summary {
@@ -798,6 +983,10 @@ button.link:hover:not(:disabled) {
 
   .summary-copy {
     font-size: 0.95rem;
+  }
+
+  .department-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .summary-row {
