@@ -215,9 +215,12 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [clearingBought, setClearingBought] = useState(false)
   const [enriching, setEnriching] = useState(false)
   const [activeDepartment, setActiveDepartment] = useState(null)
   const [activeMainTab, setActiveMainTab] = useState('adicionar')
+  const [ingredientFocused, setIngredientFocused] = useState(false)
+  const [suggestionIndex, setSuggestionIndex] = useState(-1)
   const ingredientRef = useRef(null)
   const reviewedItemIds = useRef(new Set())
   const departmentCache = useRef(new Map())
@@ -382,6 +385,16 @@ export default function App() {
     setIngredientInput('')
     setObservationInput('')
     setIsEssential(true)
+    setSuggestionIndex(-1)
+  }
+
+  function applySuggestion(suggestion) {
+    setIngredientInput(suggestion.name)
+    setSuggestionIndex(-1)
+    setIngredientFocused(false)
+    window.setTimeout(() => {
+      document.getElementById('observation')?.focus()
+    }, 30)
   }
 
   function startEdit(item) {
@@ -601,6 +614,43 @@ export default function App() {
     }
   }
 
+  async function clearBoughtItems() {
+    const boughtDocs = items.filter((item) => item.bought)
+    if (boughtDocs.length === 0 || clearingBought) return
+
+    const linesToRemove = aggregateItems(boughtDocs).length
+    const label =
+      linesToRemove === 1
+        ? 'Apagar 1 item comprado da lista?'
+        : `Apagar ${linesToRemove} itens comprados da lista?`
+
+    if (!window.confirm(label)) return
+
+    setClearingBought(true)
+    setError('')
+
+    try {
+      const ids = boughtDocs.map((item) => item.id)
+      if (editingId && ids.includes(editingId)) {
+        resetItemForm()
+      }
+
+      for (let i = 0; i < ids.length; i += 450) {
+        const chunk = ids.slice(i, i + 450)
+        const batch = writeBatch(db)
+        for (const id of chunk) {
+          batch.delete(doc(db, ITEMS_COLLECTION, id))
+        }
+        await batch.commit()
+      }
+    } catch (err) {
+      console.error(err)
+      setError('Não foi possível apagar os comprados. Tente de novo.')
+    } finally {
+      setClearingBought(false)
+    }
+  }
+
   if (!person) {
     return <NameGate users={INITIAL_USERS} onEnter={handleEnter} />
   }
@@ -623,6 +673,11 @@ export default function App() {
   const myEssentialItems = myItems.filter((item) => item.type === 'essential')
   const myOptionalItems = myItems.filter((item) => item.type === 'optional')
   const canAddIngredient = ingredientInput.trim() && !saving
+  const itemSuggestions = getItemSuggestions(items, ingredientInput, {
+    excludeId: editingId,
+  })
+  const showItemSuggestions =
+    ingredientFocused && itemSuggestions.length > 0
 
   return (
     <>
@@ -670,16 +725,78 @@ export default function App() {
 
               <form className="add" onSubmit={handleAddIngredient}>
                 <label htmlFor="ingredient">Item</label>
-                <input
-                  id="ingredient"
-                  ref={ingredientRef}
-                  type="text"
-                  value={ingredientInput}
-                  onChange={(e) => setIngredientInput(e.target.value)}
-                  placeholder="Leite, ovos…"
-                  autoComplete="off"
-                  enterKeyHint="done"
-                />
+                <div className="suggest-field">
+                  <input
+                    id="ingredient"
+                    ref={ingredientRef}
+                    type="text"
+                    value={ingredientInput}
+                    onChange={(e) => {
+                      setIngredientInput(e.target.value)
+                      setSuggestionIndex(-1)
+                    }}
+                    onFocus={() => setIngredientFocused(true)}
+                    onBlur={() => {
+                      window.setTimeout(() => setIngredientFocused(false), 120)
+                    }}
+                    onKeyDown={(e) => {
+                      if (!showItemSuggestions) return
+
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault()
+                        setSuggestionIndex((current) =>
+                          current < itemSuggestions.length - 1
+                            ? current + 1
+                            : 0,
+                        )
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault()
+                        setSuggestionIndex((current) =>
+                          current > 0
+                            ? current - 1
+                            : itemSuggestions.length - 1,
+                        )
+                      } else if (e.key === 'Enter' && suggestionIndex >= 0) {
+                        e.preventDefault()
+                        applySuggestion(itemSuggestions[suggestionIndex])
+                      } else if (e.key === 'Escape') {
+                        setIngredientFocused(false)
+                        setSuggestionIndex(-1)
+                      }
+                    }}
+                    placeholder="Leite, ovos…"
+                    autoComplete="off"
+                    enterKeyHint="done"
+                    role="combobox"
+                    aria-expanded={showItemSuggestions}
+                    aria-controls="item-suggestions"
+                    aria-autocomplete="list"
+                  />
+                  {showItemSuggestions ? (
+                    <ul
+                      id="item-suggestions"
+                      className="suggest-list"
+                      role="listbox"
+                    >
+                      {itemSuggestions.map((suggestion, index) => (
+                        <li key={normalize(suggestion.name)} role="option">
+                          <button
+                            type="button"
+                            className={
+                              index === suggestionIndex
+                                ? 'suggest-option is-active'
+                                : 'suggest-option'
+                            }
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => applySuggestion(suggestion)}
+                          >
+                            {suggestion.name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
 
                 <label htmlFor="observation">Observação</label>
                 <input
@@ -771,9 +888,21 @@ export default function App() {
                 no mercado.
               </p>
               {aggregatedItems.length > 0 ? (
-                <p className="list-progress" aria-live="polite">
-                  {boughtCount} de {aggregatedItems.length} comprados
-                </p>
+                <div className="list-progress-row">
+                  <p className="list-progress" aria-live="polite">
+                    {boughtCount} de {aggregatedItems.length} comprados
+                  </p>
+                  {boughtCount > 0 ? (
+                    <button
+                      type="button"
+                      className="ghost clear-bought"
+                      onClick={clearBoughtItems}
+                      disabled={clearingBought}
+                    >
+                      {clearingBought ? 'Apagando…' : 'Apagar comprados'}
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
 
               {items.length === 0 ? (
@@ -885,6 +1014,43 @@ export default function App() {
       </nav>
     </>
   )
+}
+
+function getItemSuggestions(items, query, { excludeId = null, limit = 6 } = {}) {
+  const q = normalize(query)
+  if (q.length < 2) return []
+
+  const map = new Map()
+
+  for (const item of items) {
+    if (excludeId && item.id === excludeId) continue
+
+    const nameKey = normalize(item.name)
+    if (!nameKey) continue
+    if (!nameKey.includes(q) && !normalize(item.nameHr || '').includes(q)) {
+      continue
+    }
+
+    if (!map.has(nameKey)) {
+      map.set(nameKey, {
+        name: item.name,
+        count: 0,
+      })
+    }
+
+    map.get(nameKey).count += 1
+  }
+
+  return [...map.values()]
+    .filter((item) => normalize(item.name) !== q)
+    .sort((a, b) => {
+      const aStarts = normalize(a.name).startsWith(q) ? 0 : 1
+      const bStarts = normalize(b.name).startsWith(q) ? 0 : 1
+      if (aStarts !== bStarts) return aStarts - bStarts
+      if (b.count !== a.count) return b.count - a.count
+      return normalize(a.name).localeCompare(normalize(b.name), 'pt-BR')
+    })
+    .slice(0, limit)
 }
 
 function preferDepartment(current, next) {
