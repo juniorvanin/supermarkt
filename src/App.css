@@ -306,6 +306,14 @@ button.name-card:active {
   line-height: 1.45;
 }
 
+.list-progress {
+  margin: -0.55rem 0 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--blue);
+}
+
 .empty {
   margin: 0;
   color: var(--muted);
@@ -570,14 +578,44 @@ button.link:hover:not(:disabled) {
 
 .summary-row {
   display: grid;
-  gap: 0.12rem;
-  padding: 0.75rem 0;
+  gap: 0;
+  padding: 0;
   border-bottom: 1px solid var(--line);
 }
 
 .summary-row:last-child {
   border-bottom: none;
-  padding-bottom: 0;
+}
+
+.summary-check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: start;
+  margin: 0;
+  padding: 0.75rem 0;
+  min-height: 48px;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: 0;
+  text-transform: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.summary-check input {
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-top: 0.15rem;
+  accent-color: var(--blue);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.summary-check-body {
+  min-width: 0;
+  display: grid;
+  gap: 0.12rem;
 }
 
 .summary-row-main {
@@ -592,6 +630,18 @@ button.link:hover:not(:disabled) {
   font-weight: 700;
   line-height: 1.35;
   color: var(--ink);
+}
+
+.summary-row.is-bought .summary-row-main strong {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.summary-row.is-bought .summary-hr-name,
+.summary-row.is-bought .summary-row-meta,
+.summary-row.is-bought .tag {
+  opacity: 0.7;
 }
 
 .summary-hr-name {

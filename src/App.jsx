@@ -8,6 +8,7 @@ import {
   query,
   serverTimestamp,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore'
 import { db, ITEMS_COLLECTION } from './firebase'
 import {
@@ -257,6 +258,7 @@ export default function App() {
             department: resolveDepartment(maybeDepartment),
             observation: data.observation || '',
             addedBy: data.addedBy || 'Alguém',
+            bought: Boolean(data.bought),
           }
         })
         setItems(nextItems)
@@ -436,6 +438,7 @@ export default function App() {
         department: resolveDepartment(department),
         observation,
         addedBy,
+        bought: false,
         createdAt: serverTimestamp(),
       })
 
@@ -464,6 +467,23 @@ export default function App() {
     }
   }
 
+  async function toggleBought(aggregatedItem) {
+    if (!aggregatedItem?.ids?.length) return
+
+    const nextBought = !aggregatedItem.bought
+    setError('')
+    try {
+      const batch = writeBatch(db)
+      for (const id of aggregatedItem.ids) {
+        batch.update(doc(db, ITEMS_COLLECTION, id), { bought: nextBought })
+      }
+      await batch.commit()
+    } catch (err) {
+      console.error(err)
+      setError('Não foi possível atualizar o item. Tente de novo.')
+    }
+  }
+
   if (!person) {
     return <NameGate users={INITIAL_USERS} onEnter={handleEnter} />
   }
@@ -479,6 +499,7 @@ export default function App() {
     departmentsInSummary.find(
       (group) => group.department === selectedDepartment,
     ) || null
+  const boughtCount = aggregatedItems.filter((item) => item.bought).length
   const myItems = items.filter(
     (item) => normalize(item.addedBy) === normalize(person),
   )
@@ -603,9 +624,14 @@ export default function App() {
             >
               <h2 className="panel-title">Lista completa</h2>
               <p className="panel-copy">
-                Todos os pedidos, por departamento. Croata entre parênteses para
-                achar no mercado.
+                Marque o que já foi comprado. Croata entre parênteses para achar
+                no mercado.
               </p>
+              {aggregatedItems.length > 0 ? (
+                <p className="list-progress" aria-live="polite">
+                  {boughtCount} de {aggregatedItems.length} comprados
+                </p>
+              ) : null}
 
               {items.length === 0 ? (
                 <p className="empty">A lista ainda está vazia.</p>
@@ -653,7 +679,10 @@ export default function App() {
                         activeDepartmentGroup.department,
                       )}
                     >
-                      <SummaryGroup items={activeDepartmentGroup.items} />
+                      <SummaryGroup
+                        items={activeDepartmentGroup.items}
+                        onToggleBought={toggleBought}
+                      />
                     </div>
                   ) : null}
                 </div>
@@ -745,6 +774,8 @@ function aggregateItems(items) {
         department,
         observation: item.observation || '',
         count: 0,
+        boughtCount: 0,
+        bought: true,
         addedBy: [],
         ids: [],
       })
@@ -753,6 +784,8 @@ function aggregateItems(items) {
     const entry = map.get(key)
     entry.count += 1
     entry.ids.push(item.id)
+    if (item.bought) entry.boughtCount += 1
+    entry.bought = entry.boughtCount === entry.count
     entry.department = preferDepartment(entry.department, department)
     entry.nameHr = preferTranslation(entry.nameHr, item.nameHr)
 
@@ -827,36 +860,55 @@ function ItemGroup({ title, kind, items, onRemove, hideAddedBy = false }) {
   )
 }
 
-function SummaryGroup({ items }) {
+function SummaryGroup({ items, onToggleBought }) {
   if (items.length === 0) return null
 
   return (
     <ul className="summary-items">
-      {items.map((item) => (
-        <li key={item.key} className="summary-row">
-          <div className="summary-row-main">
-            <strong>
-              {item.name}
-              {item.nameHr ? (
-                <span className="summary-hr-name">
-                  {' '}
-                  ({String(item.nameHr).trim()})
+      {items.map((item) => {
+        const label = item.nameHr
+          ? `${item.name} (${String(item.nameHr).trim()})`
+          : item.name
+
+        return (
+          <li
+            key={item.key}
+            className={item.bought ? 'summary-row is-bought' : 'summary-row'}
+          >
+            <label className="summary-check">
+              <input
+                type="checkbox"
+                checked={item.bought}
+                onChange={() => onToggleBought(item)}
+                aria-label={`Marcar ${label} como comprado`}
+              />
+              <span className="summary-check-body">
+                <span className="summary-row-main">
+                  <strong>
+                    {item.name}
+                    {item.nameHr ? (
+                      <span className="summary-hr-name">
+                        {' '}
+                        ({String(item.nameHr).trim()})
+                      </span>
+                    ) : null}
+                    {item.count > 1 ? (
+                      <span className="count">×{item.count}</span>
+                    ) : null}
+                  </strong>
+                  {item.type === 'optional' ? (
+                    <span className="tag tag-optional">opcional</span>
+                  ) : null}
                 </span>
-              ) : null}
-              {item.count > 1 ? (
-                <span className="count">×{item.count}</span>
-              ) : null}
-            </strong>
-            {item.type === 'optional' ? (
-              <span className="tag tag-optional">opcional</span>
-            ) : null}
-          </div>
-          <p className="summary-row-meta">
-            {item.observation ? `${item.observation} · ` : ''}
-            {item.addedBy.join(', ')}
-          </p>
-        </li>
-      ))}
+                <span className="summary-row-meta">
+                  {item.observation ? `${item.observation} · ` : ''}
+                  {item.addedBy.join(', ')}
+                </span>
+              </span>
+            </label>
+          </li>
+        )
+      })}
     </ul>
   )
 }
