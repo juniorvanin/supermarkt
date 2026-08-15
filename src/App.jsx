@@ -14,7 +14,7 @@ import { db, ITEMS_COLLECTION } from './firebase'
 import {
   CroatiaFlag,
   IconBag,
-  IconCart,
+  IconBrand,
   IconList,
   IconSpark,
   IconUser,
@@ -119,21 +119,6 @@ const INITIAL_USERS = [
   'Mariana',
 ]
 
-const WELCOME_BY_USER = {
-  Ana: 'Oi, Ana — pronta para a Croácia?',
-  Junior: 'Oi, Junior — pronto para a Croácia?',
-  Jean: 'Oi, Jean — pronto para a Croácia?',
-  Karla: 'Oi, Karla — pronta para a Croácia?',
-  Sarah: 'Oi, Sarah — pronta para a Croácia?',
-  Vitor: 'Oi, Vitor — pronto para a Croácia?',
-  Felipe: 'Oi, Felipe — pronto para a Croácia?',
-  Mariana: 'Oi, Mariana — pronta para a Croácia?',
-}
-
-function welcomeMessage(name) {
-  return WELCOME_BY_USER[name] || `Oi, ${name} — pronto(a) para a Croácia?`
-}
-
 const CROATIA_FUN_FACTS = [
   'A Croácia tem mais de mil ilhas ao longo do Adriático — só cerca de 50 são habitadas.',
   'Dubrovnik serviu de inspiração (e cenário) para King\'s Landing em Game of Thrones.',
@@ -172,7 +157,7 @@ function NameGate({ users, onEnter }) {
         <CroatiaFlag className="gate-flag" />
         <p className="gate-kicker">Croácia 2026</p>
         <h1>
-          <IconCart className="title-icon" />
+          <IconBrand className="title-icon" />
           Lista de compras
         </h1>
       </header>
@@ -221,8 +206,8 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState('')
   const [clearingBought, setClearingBought] = useState(false)
-  const [enriching, setEnriching] = useState(false)
   const [activeDepartment, setActiveDepartment] = useState(null)
   const [activeMainTab, setActiveMainTab] = useState('adicionar')
   const [ingredientFocused, setIngredientFocused] = useState(false)
@@ -240,6 +225,12 @@ export default function App() {
       /* ignore */
     }
   }, [person])
+
+  useEffect(() => {
+    if (!toast) return
+    const id = window.setTimeout(() => setToast(''), 2800)
+    return () => window.clearTimeout(id)
+  }, [toast])
 
   useEffect(() => {
     if (activeMainTab !== 'adicionar') return
@@ -297,7 +288,6 @@ export default function App() {
     )
 
     if (pending.length === 0) {
-      setEnriching(false)
       return
     }
 
@@ -332,8 +322,6 @@ export default function App() {
     }
 
     async function enrichPending() {
-      setEnriching(true)
-
       for (const item of pending) {
         if (cancelled) return
 
@@ -371,8 +359,6 @@ export default function App() {
           console.error(err)
         }
       }
-
-      if (!cancelled) setEnriching(false)
     }
 
     enrichPending()
@@ -456,39 +442,12 @@ export default function App() {
     setError('')
 
     try {
-      let department = 'outros'
-      let nameHr = ''
-
-      const [departmentResult, translationResult] = await Promise.allSettled([
-        categorizeItem(name),
-        translateItem(name),
-      ])
-
-      if (departmentResult.status === 'fulfilled') {
-        department = departmentResult.value
-        departmentCache.current.set(normalize(name), Promise.resolve(department))
-      } else {
-        console.error(departmentResult.reason)
-      }
-
-      if (translationResult.status === 'fulfilled') {
-        nameHr = translationResult.value
-        if (nameHr) {
-          translationCache.current.set(
-            normalize(name),
-            Promise.resolve(nameHr),
-          )
-        }
-      } else {
-        console.error(translationResult.reason)
-      }
-
       await addDoc(collection(db, ITEMS_COLLECTION), {
         name,
-        nameHr,
+        nameHr: '',
         type,
         category: 'compras',
-        department: resolveDepartment(department),
+        department: 'outros',
         observation,
         addedBy,
         bought: false,
@@ -496,7 +455,8 @@ export default function App() {
       })
 
       resetItemForm()
-      setActiveMainTab('meus')
+      setToast(`${name} adicionado`)
+      window.setTimeout(() => ingredientRef.current?.focus(), 40)
     } catch (err) {
       console.error(err)
       setError('Não foi possível salvar o item. Tente de novo.')
@@ -543,35 +503,11 @@ export default function App() {
       const nameChanged = normalize(target.name) !== normalize(name)
 
       if (nameChanged) {
-        const [departmentResult, translationResult] = await Promise.allSettled([
-          categorizeItem(name),
-          translateItem(name),
-        ])
-
-        if (departmentResult.status === 'fulfilled') {
-          updates.department = resolveDepartment(departmentResult.value)
-          departmentCache.current.set(
-            normalize(name),
-            Promise.resolve(updates.department),
-          )
-        } else {
-          console.error(departmentResult.reason)
-        }
-
-        if (translationResult.status === 'fulfilled') {
-          updates.nameHr = translationResult.value || ''
-          if (updates.nameHr) {
-            translationCache.current.set(
-              normalize(name),
-              Promise.resolve(updates.nameHr),
-            )
-          }
-        } else {
-          console.error(translationResult.reason)
-          updates.nameHr = ''
-        }
-
+        updates.department = 'outros'
+        updates.nameHr = ''
         reviewedItemIds.current.delete(editingId)
+        departmentCache.current.delete(normalize(name))
+        translationCache.current.delete(normalize(name))
       }
 
       await updateDoc(doc(db, ITEMS_COLLECTION, editingId), updates)
@@ -690,27 +626,27 @@ export default function App() {
       <div className="page app-page">
         <header className="app-header">
           <div className="app-top">
-            <h1 className="app-brand">
-              <IconCart className="title-icon" />
-              Lista de compras
-            </h1>
+            <div className="app-brand-block">
+              <h1 className="app-brand">
+                <IconBrand className="brand-icon" />
+                Lista de compras
+              </h1>
+              <p className="app-user">Croácia 2026 · {person}</p>
+            </div>
             <button
               type="button"
-              className="ghost"
+              className="exit-btn"
               onClick={() => {
                 resetItemForm()
                 setPerson(null)
               }}
             >
-              Sair
+              <IconUser className="exit-btn-icon" />
+              Trocar
             </button>
           </div>
-          <p className="app-user">{welcomeMessage(person)}</p>
           {error ? <p className="banner-error">{error}</p> : null}
           {loading ? <p className="banner-info">Carregando lista…</p> : null}
-          {enriching ? (
-            <p className="banner-info">Atualizando departamentos e traduções…</p>
-          ) : null}
         </header>
 
         <div className="main-panel">
@@ -1012,6 +948,12 @@ export default function App() {
           ) : null}
         </button>
       </nav>
+
+      {toast ? (
+        <div className="toast" role="status" aria-live="polite">
+          {toast}
+        </div>
+      ) : null}
     </>
   )
 }

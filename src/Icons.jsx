@@ -33,6 +33,25 @@ export function CroatiaFlag({ className = '' }) {
   )
 }
 
+export function IconBrand({ className = '' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M7 9h10l-.85 10.1A1.7 1.7 0 0 1 14.47 21H9.53a1.7 1.7 0 0 1-1.68-1.9L7 9Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.5 9V7.25A2.5 2.5 0 0 1 12 4.75 2.5 2.5 0 0 1 14.5 7.25V9"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 export function IconCart({ className = '' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
